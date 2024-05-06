@@ -40,7 +40,7 @@ add_library(common_lib
         src/subtitle_window.cc
         src/convert_timer.cc)
 
-foreach(_target main)
+foreach(_target main test robot)
     add_executable(${_target} src/${_target}.cc)
     target_link_libraries(${_target}
         common_lib
