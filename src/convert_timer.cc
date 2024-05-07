@@ -10,6 +10,9 @@
 // 音频包 20ms
 const int FRAME_DURATION = 20;
 
+// 缓冲区-最大传输单元
+const int BUFFER_SIZE = 1200;
+
 ConvertTimer::ConvertTimer() = default;
 
 ConvertTimer::~ConvertTimer() = default;
@@ -36,6 +39,32 @@ static void send_udp_packet(int sockfd, const sockaddr_in servaddr, Packet* pack
     spdlog::debug("Subtitle convert timer sendto success packet ts: {} size: {}", packet->timestamp, packet->body_size);
 }
 
+void subtitle_result_task(int sockfd,  const sockaddr_in servaddr, LRUQueue* m_subtitle_queue) {
+    auto buffer = new uint8_t[BUFFER_SIZE];
+    while (true) {
+        // 每 80ms 查询字幕
+        std::this_thread::sleep_for(std::chrono::milliseconds(80));
+
+        auto req = new Packet();
+        req->type = SUBTITLE;
+        req->body_size = 0;
+        req->body = new uint8_t[0];
+        send_udp_packet(sockfd, servaddr, req);
+        delete req;
+
+        int recv_size = recvfrom(sockfd, buffer, BUFFER_SIZE, MSG_DONTWAIT, nullptr, nullptr);
+        if (recv_size < 0) {
+            continue;
+        }
+        Packet* pkt = decode(buffer);
+        if (pkt->type == SUBTITLE && pkt->body_size > 0) {
+            m_subtitle_queue->push(pkt);
+            continue;
+        }
+        delete pkt;
+    }
+}
+
 void ConvertTimer::start() {
     if (m_target.empty()) {
         spdlog::error("ASR server target address is empty.");
@@ -60,13 +89,15 @@ void ConvertTimer::start() {
         spdlog::error("Socket creation failed");
         exit(EXIT_FAILURE);
     }
+    // 单独线程获取字幕
+    std::thread(subtitle_result_task, sockfd, servaddr, m_subtitle_queue).detach();
     while(true) {
         if (m_audio_queue->empty()) {
             std::this_thread::sleep_for(std::chrono::milliseconds(FRAME_DURATION));
             continue;
         }
         Packet *av_packet = m_audio_queue->pop();
-        if (av_packet->type == AUDIO_FRAME) {
+        if (av_packet->type == AUDIO) {
             send_udp_packet(sockfd, servaddr, av_packet);
         }
         delete av_packet;

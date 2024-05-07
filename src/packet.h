@@ -4,8 +4,8 @@
 #include <iostream>
 #include <utility>
 
-const int AUDIO_FRAME = 1;
-const int VIDEO_FRAME = 2;
+const int AUDIO    = 1;
+const int VIDEO    = 2;
 const int SUBTITLE = 3;
 
 struct Packet {

@@ -77,7 +77,7 @@ int main(int argc, char *argv[]) {
         auto stream_seg = (uint8_t *)(&*stream.begin() + i);
 
         auto pkt = new Packet();
-        pkt->type = AUDIO_FRAME;
+        pkt->type = AUDIO;
         pkt->timestamp = current_timestamp();
         pkt->body_size = FRAME_BYTE_SIZE;
         pkt->body = stream_seg;

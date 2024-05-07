@@ -75,6 +75,12 @@ void SubtitleWindow::run() {
                 spdlog::info("space keydown event");
             }
         }
+        if (m_subtitle_queue->size() > 0) {
+            auto pkt = m_subtitle_queue->pop();
+            auto text = std::string(reinterpret_cast<const char*>(pkt->body), pkt->body_size);
+            spdlog::info("window: {}", text);
+            delete pkt;
+        }
         SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
         SDL_RenderClear(renderer);
         SDL_RenderCopy(renderer, text_tex, nullptr, &text_rect);

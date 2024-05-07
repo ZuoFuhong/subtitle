@@ -26,7 +26,7 @@ AudioRecorder* AudioRecorder::new_audio_recorder(LRUQueue* m_queue) {
         memcpy(pcm_data, stream, nlen);
 
         auto pkt = new Packet();
-        pkt->type = AUDIO_FRAME;
+        pkt->type = AUDIO;
         pkt->timestamp = current_timestamp();
         pkt->body = pcm_data;
         pkt->body_size = nlen;
