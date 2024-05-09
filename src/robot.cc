@@ -17,7 +17,7 @@ const int FRAME_SIZE = 320;
 
 const int FRAME_BYTE_SIZE = FRAME_SIZE * 2;
 
-static void send_udp_packet(std::string address, Packet* packet) {
+static void send_udp_packet(const std::string& address, Packet* packet) {
     char ip[INET_ADDRSTRLEN];
     int port;
     sscanf(address.c_str(), "%[^:]:%d", ip, &port);
@@ -78,7 +78,7 @@ int main(int argc, char *argv[]) {
 
         auto pkt = new Packet();
         pkt->type = AUDIO;
-        pkt->timestamp = current_timestamp();
+        pkt->timestamp = utils::current_timestamp();
         pkt->body_size = FRAME_BYTE_SIZE;
         pkt->body = stream_seg;
         send_udp_packet(address, pkt);

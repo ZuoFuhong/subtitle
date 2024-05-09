@@ -1,10 +1,11 @@
 #include <iostream>
 #include <spdlog/spdlog.h>
-#include "../third_party/clipp.h"
+#include "spdlog/sinks/stdout_color_sinks.h"
 #include "audio_recorder.h"
 #include "lru_queue.h"
 #include "convert_timer.h"
 #include "subtitle_window.h"
+#include "../third_party/clipp.h"
 
 void handle_sigint(int sig) {
     if (sig == SIGINT) {
@@ -39,6 +40,7 @@ int main(int argc, char *argv[]) {
     convert_timer->set_target(address);
     std::thread(&ConvertTimer::start, convert_timer).detach();
 
+    // 字幕上屏
     window->run();
     return 0;
 }

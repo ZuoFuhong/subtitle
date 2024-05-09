@@ -20,17 +20,13 @@ add_definitions(-D_THREAD_SAFE)
 find_package(SDL2 CONFIG REQUIRED)
 message(STATUS "Using SDL2 ${SDL2_VERSION}")
 
-# Find SDL2_ttf installation
-find_package(SDL2_TTF CONFIG REQUIRED)
-message(STATUS "Using SDL2_ttf ${SDL2_TTF_VERSION}")
-
-# Find SDL2_image installation
-find_package(SDL2_IMAGE CONFIG REQUIRED)
-message(STATUS "Using SDL2_image ${SDL2_IMAGE_VERSION}")
-
 # Find spdlog installation
 find_package(SPDLOG CONFIG REQUIRED)
 message(STATUS "Using spdlog ${SPDLOG_VERSION}")
+
+# Find boost installation
+find_package(Boost CONFIG REQUIRED)
+message(STATUS "Using boost ${Boost_VERSION}")
 
 add_library(common_lib
         src/utils.cc
@@ -43,9 +39,8 @@ add_library(common_lib
 foreach(_target main test robot)
     add_executable(${_target} src/${_target}.cc)
     target_link_libraries(${_target}
-        common_lib
+        common_lib ssl crypto
         SDL2::SDL2
-        SDL2_ttf::SDL2_ttf
-        SDL2_image::SDL2_image
-        spdlog::spdlog)
+        spdlog::spdlog
+        Boost::boost)
 endforeach()
