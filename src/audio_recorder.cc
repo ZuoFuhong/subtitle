@@ -1,7 +1,6 @@
 #include "audio_recorder.h"
 #include "utils.h"
 #include <spdlog/spdlog.h>
-#include <thread>
 
 // 采样数 20ms 音频
 const int FRAME_SIZE = 320;

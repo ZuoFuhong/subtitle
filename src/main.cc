@@ -6,6 +6,7 @@
 #include "convert_timer.h"
 #include "subtitle_window.h"
 #include "../third_party/clipp.h"
+#include "utils.h"
 
 void handle_sigint(int sig) {
     if (sig == SIGINT) {
@@ -21,10 +22,13 @@ int main(int argc, char *argv[]) {
         clipp::option("-s").doc("ASR server address") & clipp::value("address", address)
     );
     parse(argc, argv, cli);
-    if (address.empty()) {
-        std::cout << clipp::make_man_page(cli, argv[0]) << std::endl;
+    std::string ip;
+    unsigned short port;
+    if (address.empty() || !utils::parse_address(address, ip, port)) {
+        std::cerr << "Error: invalid ASR server address." << std::endl;
         exit(EXIT_FAILURE);
     }
+    spdlog::info("ASR server target: {}", address);
     signal(SIGINT, handle_sigint);
 
     auto audio_queue = new LRUQueue("audio", 10);
@@ -37,7 +41,7 @@ int main(int argc, char *argv[]) {
 
     // 语音识别
     auto convert_timer = ConvertTimer::new_convert_timer(audio_queue, subtitle_queue);
-    convert_timer->set_target(address);
+    convert_timer->set_target(ip, port);
     std::thread(&ConvertTimer::start, convert_timer).detach();
 
     // 字幕上屏

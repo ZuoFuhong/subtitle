@@ -17,15 +17,11 @@ const int FRAME_SIZE = 320;
 
 const int FRAME_BYTE_SIZE = FRAME_SIZE * 2;
 
-static void send_udp_packet(const std::string& address, Packet* packet) {
-    char ip[INET_ADDRSTRLEN];
-    int port;
-    sscanf(address.c_str(), "%[^:]:%d", ip, &port);
-
+static void send_udp_packet(std::string& ip, unsigned short port, Packet* packet) {
     int sockfd = 0;
     struct sockaddr_in servaddr{};
     memset(&servaddr, 0, sizeof(servaddr));
-    if (inet_pton(AF_INET, ip, &servaddr.sin_addr) <= 0) {
+    if (inet_pton(AF_INET, ip.c_str(), &servaddr.sin_addr) <= 0) {
         spdlog::error("Error inet_pton node addr");
         exit(EXIT_FAILURE);
     }
@@ -56,6 +52,12 @@ int main(int argc, char *argv[]) {
         clipp::option("-s").doc("ASR server address") & clipp::value("address", address)
     );
     parse(argc, argv, cli);
+    std::string ip;
+    unsigned short port;
+    if (address.empty() || !utils::parse_address(address, ip, port)) {
+        std::cerr << "Error: invalid ASR server address." << std::endl;
+        exit(EXIT_FAILURE);
+    }
     if (file.empty()) {
         std::cerr << "Error: file cannot be empty" << std::endl;
         exit(1);
@@ -81,7 +83,7 @@ int main(int argc, char *argv[]) {
         pkt->timestamp = utils::current_timestamp();
         pkt->body_size = FRAME_BYTE_SIZE;
         pkt->body = stream_seg;
-        send_udp_packet(address, pkt);
+        send_udp_packet(ip, port, pkt);
 
         // 20ms 音频发一次
         // 模拟说话节奏

@@ -1,6 +1,6 @@
 #include "utils.h"
 #include "../third_party/json.hpp"
-#include <chrono>
+#include <regex>
 #include <spdlog/spdlog.h>
 #include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>
@@ -28,6 +28,22 @@ void utils::replace_substr(std::string& str, const std::string& old_substr, cons
         str.replace(pos, old_substr.length(), new_substr);
         pos += new_substr.length();
     }
+}
+
+bool utils::parse_address(const std::string& address, std::string& ip, unsigned short& port) {
+    std::regex pattern(R"((\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})(?::(\d+))?)");
+    std::smatch match;
+    if (std::regex_match(address, match, pattern)) {
+        ip = match[1].str();
+        std::string port_str = match[2].str();
+        if (port_str.empty()) {
+            port = 80;
+        } else {
+            port = static_cast<unsigned short>(std::stoi(port_str));
+        }
+        return true;
+    }
+    return false;
 }
 
 std::string utils::translate_sentence(const std::string& sentence) {
@@ -64,7 +80,7 @@ std::string utils::translate_sentence(const std::string& sentence) {
         boost::asio::ip::tcp::resolver resolver(ctx);
         boost::asio::ssl::stream<boost::asio::ip::tcp::socket> socket(ctx, ssl_ctx);
         if (!SSL_set_tlsext_host_name(socket.native_handle(), hostname.c_str())) {
-            throw boost::system::system_error(::ERR_get_error(), boost::asio::error::get_ssl_category());
+            throw boost::system::system_error(static_cast<int>(ERR_get_error()), boost::asio::error::get_ssl_category());
         }
         boost::asio::connect(socket.next_layer(), resolver.resolve(hostname, "https"));
         socket.handshake(boost::asio::ssl::stream_base::client);

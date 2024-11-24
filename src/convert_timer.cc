@@ -6,6 +6,7 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <utility>
+#include <string>
 
 // 音频包 20ms
 const int FRAME_DURATION = 20;
@@ -24,8 +25,9 @@ ConvertTimer* ConvertTimer::new_convert_timer(LRUQueue* m_audio_queue, LRUQueue*
     return timer;
 }
 
-void ConvertTimer::set_target(std::string target) {
-    m_target = std::move(target);
+void ConvertTimer::set_target(std::string ip, unsigned short port) {
+    m_ip = std::move(ip);
+    m_port = port;
 }
 
 static void send_udp_packet(int sockfd, const sockaddr_in servaddr, Packet* packet) {
@@ -39,7 +41,7 @@ static void send_udp_packet(int sockfd, const sockaddr_in servaddr, Packet* pack
     spdlog::debug("Subtitle convert timer sendto success packet ts: {} size: {}", packet->timestamp, packet->body_size);
 }
 
-void subtitle_result_task(int sockfd,  const sockaddr_in servaddr, LRUQueue* m_subtitle_queue) {
+[[noreturn]] void subtitle_result_task(int sockfd,  const sockaddr_in servaddr, LRUQueue* m_subtitle_queue) {
     auto buffer = new uint8_t[BUFFER_SIZE];
     while (true) {
         // 每 80ms 查询字幕
@@ -52,7 +54,7 @@ void subtitle_result_task(int sockfd,  const sockaddr_in servaddr, LRUQueue* m_s
         send_udp_packet(sockfd, servaddr, req);
         delete req;
 
-        int recv_size = recvfrom(sockfd, buffer, BUFFER_SIZE, MSG_DONTWAIT, nullptr, nullptr);
+        auto recv_size = recvfrom(sockfd, buffer, BUFFER_SIZE, MSG_DONTWAIT, nullptr, nullptr);
         if (recv_size < 0) {
             continue;
         }
@@ -65,25 +67,16 @@ void subtitle_result_task(int sockfd,  const sockaddr_in servaddr, LRUQueue* m_s
     }
 }
 
-void ConvertTimer::start() {
-    if (m_target.empty()) {
-        spdlog::error("ASR server target address is empty.");
-        exit(EXIT_FAILURE);
-    }
-    spdlog::info("ASR server target: {}", m_target);
-    char ip[INET_ADDRSTRLEN];
-    int port;
-    sscanf(m_target.c_str(), "%[^:]:%d", ip, &port);
-
+[[noreturn]] void ConvertTimer::start() {
     int sockfd;
     struct sockaddr_in servaddr{};
     memset(&servaddr, 0, sizeof(servaddr));
-    if (inet_pton(AF_INET, ip, &servaddr.sin_addr) <= 0) {
+    if (inet_pton(AF_INET, m_ip.c_str(), &servaddr.sin_addr) <= 0) {
         spdlog::error("Error inet_pton node addr");
         exit(EXIT_FAILURE);
     }
     servaddr.sin_family = AF_INET;
-    servaddr.sin_port = htons(port);
+    servaddr.sin_port = htons(m_port);
 
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
         spdlog::error("Socket creation failed");

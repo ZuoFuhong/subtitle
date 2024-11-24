@@ -13,6 +13,9 @@ namespace utils {
     // 替换字符串
     void replace_substr(std::string& str, const std::string& old_substr, const std::string& new_substr);
 
+    // 解析网络地址
+    bool parse_address(const std::string& address, std::string& ip, unsigned short& port);
+
     // 翻译英文句子
     std::string translate_sentence(const std::string& sentence);
 }
