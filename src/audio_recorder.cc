@@ -5,6 +5,9 @@
 // 采样数 20ms 音频
 const int FRAME_SIZE = 320;
 
+// 本地音频驱动
+const char* AUDIO_DEVICE_NAME = "Loopback";
+
 AudioRecorder::AudioRecorder() = default;
 
 AudioRecorder* AudioRecorder::new_audio_recorder(LRUQueue* m_queue) {
@@ -32,7 +35,7 @@ AudioRecorder* AudioRecorder::new_audio_recorder(LRUQueue* m_queue) {
         audio_queue->push(pkt);
     };
     SDL_AudioDeviceID audio_device = SDL_OpenAudioDevice(
-            "BlackHole 2ch", SDL_TRUE, &desired_spec, &obtained_spec, 0);
+            AUDIO_DEVICE_NAME, SDL_TRUE, &desired_spec, &obtained_spec, 0);
     if (audio_device == 0) {
         spdlog::error("Failed to open audio device, error: {}", SDL_GetError());
         exit(EXIT_FAILURE);

@@ -1,4 +1,5 @@
 #include "convert_timer.h"
+#include "audio_codec.h"
 #include "udp_codec.h"
 #include <spdlog/spdlog.h>
 #include <sys/types.h>
@@ -84,15 +85,20 @@ static void send_udp_packet(int sockfd, const sockaddr_in servaddr, Packet* pack
     }
     // 单独线程获取字幕
     std::thread(subtitle_result_task, sockfd, servaddr, m_subtitle_queue).detach();
+
+    auto audio_codec = AudioCodec::new_audio_codec();
     while(true) {
         if (m_audio_queue->empty()) {
             std::this_thread::sleep_for(std::chrono::milliseconds(FRAME_DURATION));
             continue;
         }
         Packet *av_packet = m_audio_queue->pop();
-        if (av_packet->type == AUDIO) {
-            send_udp_packet(sockfd, servaddr, av_packet);
-        }
+
+        // 编码发送
+        auto opus_packet = audio_codec->encode(av_packet);
+        send_udp_packet(sockfd, servaddr, opus_packet);
+
+        delete opus_packet;
         delete av_packet;
     }
 }

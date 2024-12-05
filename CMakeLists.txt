@@ -32,6 +32,7 @@ add_library(common_lib
         src/utils.cc
         src/lru_queue.cc
         src/audio_recorder.cc
+        src/audio_codec.cc
         src/udp_codec.cc
         src/subtitle_window.cc
         src/convert_timer.cc)
@@ -39,7 +40,7 @@ add_library(common_lib
 foreach(_target main test robot)
     add_executable(${_target} src/${_target}.cc)
     target_link_libraries(${_target}
-        common_lib ssl crypto
+        common_lib ssl crypto opus
         SDL2::SDL2
         spdlog::spdlog
         Boost::boost)
