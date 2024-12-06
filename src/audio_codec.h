@@ -7,7 +7,7 @@
 
 class AudioCodec {
 public:
-    AudioCodec();
+    AudioCodec() = default;
     ~AudioCodec();
 
     static AudioCodec* new_audio_codec();
@@ -20,8 +20,8 @@ public:
 
 private:
     // 编码器
-    OpusEncoder* encoder;
+    OpusEncoder* encoder{};
 
     // 解码器
-    OpusDecoder* decoder;
+    OpusDecoder* decoder{};
 };

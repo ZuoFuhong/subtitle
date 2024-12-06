@@ -9,9 +9,6 @@ const int CHANNELS    = 1; // 单声道
 const int BIT_RATE = 32000; // 比特率, 暂不支持动态调整
 const int BUFFER_SIZE = 640; // 缓冲区
 
-AudioCodec::AudioCodec() {
-}
-
 AudioCodec* AudioCodec::new_audio_codec() {
     // 编码器
     int err;
@@ -58,7 +55,7 @@ Packet* AudioCodec::encode(Packet* av_packet) {
     int16_t pcm_buffer[FRAME_SIZE * CHANNELS];
     uint8_to_int16(av_packet->body, pcm_buffer, av_packet->body_size);
 
-    uint8_t* opus_data = new uint8_t[BUFFER_SIZE];
+    auto opus_data = new uint8_t[BUFFER_SIZE];
     opus_int32 encoded_bytes_size = opus_encode(encoder, pcm_buffer, FRAME_SIZE, opus_data, BUFFER_SIZE);
     if (encoded_bytes_size < 0) {
         std::cerr << "Failed to encode: " << opus_strerror(encoded_bytes_size) << std::endl;
@@ -81,7 +78,7 @@ Packet* AudioCodec::decode(Packet* opus_packet) {
         std::cerr << "Failed to decode: " << opus_strerror(decoded_sample_size) << std::endl;
         exit(-1);
     }
-    uint8_t* pcm_data_bytes = new uint8_t[decoded_sample_size * 2];
+    auto pcm_data_bytes = new uint8_t[decoded_sample_size * 2];
     int16_to_uint8(pcm_buffer, pcm_data_bytes, FRAME_SIZE);
     auto pcm_packet = new Packet();
     pcm_packet->type = opus_packet->type;
