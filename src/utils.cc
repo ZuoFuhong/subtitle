@@ -1,10 +1,9 @@
-#include "utils.h"
-#include "../third_party/json.hpp"
 #include <regex>
-#include <spdlog/spdlog.h>
 #include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>
 #include <boost/beast.hpp>
+#include "utils.h"
+#include "../third_party/json.hpp"
 
 int64_t utils::current_timestamp() {
     std::chrono::system_clock::time_point now = std::chrono::system_clock::now();
@@ -49,7 +48,7 @@ bool utils::parse_address(const std::string& address, std::string& ip, unsigned 
 std::string utils::translate_sentence(const std::string& sentence) {
     std::string apikey = std::getenv("OPENAI_API_KEY");
     if (apikey.empty()) {
-        spdlog::debug("OPENAI_API_KEY environment variable is not configured: {}", apikey);
+        std::cerr <<"OPENAI_API_KEY environment variable is not configured." << std::endl;
         return "";
     }
     std::string hostname = "api.openai.com";
@@ -98,17 +97,15 @@ std::string utils::translate_sentence(const std::string& sentence) {
         boost::beast::flat_buffer buffer;
         boost::beast::http::response<boost::beast::http::dynamic_body> response;
         boost::beast::http::read(socket, buffer, response);
-        spdlog::debug("HTTP status code: {}", response.result_int());
         if (response.result() == boost::beast::http::status::ok) {
             std::string data = boost::beast::buffers_to_string(response.body().data());
-            spdlog::debug("HTTP response body: {}", data);
             auto object = nlohmann::json::parse(data);
             if (object.contains("choices") && !object["choices"].empty() && object["choices"][0].contains("message")) {
                 result = object["choices"][0]["message"]["content"];
             }
         }
     } catch (std::exception const& e) {
-        spdlog::error("HTTP Request Error: {}", e.what());
+        std::cerr << "HTTP Request Error: " << e.what() << std::endl;
     }
     return result;
 }

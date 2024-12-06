@@ -6,10 +6,10 @@
 #include <netinet/in.h>
 #include <utility>
 #include <thread>
-#include "packet.h"
-#include "audio_codec.h"
-#include "udp_codec.h"
-#include "utils.h"
+#include "../src/packet.h"
+#include "../src/audio_codec.h"
+#include "../src/udp_codec.h"
+#include "../src/utils.h"
 #include "../third_party/clipp.h"
 
 // 采样数 20ms 音频

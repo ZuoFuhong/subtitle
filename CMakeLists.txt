@@ -28,6 +28,9 @@ message(STATUS "Using spdlog ${SPDLOG_VERSION}")
 find_package(Boost CONFIG REQUIRED)
 message(STATUS "Using boost ${Boost_VERSION}")
 
+find_package(onnxruntime CONFIG REQUIRED)
+message(STATUS "Using onnxruntime ${onnxruntime_VERSION}")
+
 add_library(common_lib
         src/utils.cc
         src/lru_queue.cc
@@ -35,13 +38,23 @@ add_library(common_lib
         src/audio_codec.cc
         src/udp_codec.cc
         src/subtitle_window.cc
-        src/convert_timer.cc)
+        src/convert_timer.cc
+        src/silero_vad.cc)
 
-foreach(_target main test robot)
+foreach(_target main)
     add_executable(${_target} src/${_target}.cc)
     target_link_libraries(${_target}
         common_lib ssl crypto opus
+        onnxruntime::onnxruntime
         SDL2::SDL2
         spdlog::spdlog
         Boost::boost)
+endforeach()
+
+foreach(_target test robot audio_vad)
+    add_executable(${_target} tests/${_target}.cc)
+    target_link_libraries(${_target}
+            common_lib ssl crypto opus
+            onnxruntime::onnxruntime
+            Boost::boost)
 endforeach()
