@@ -7,11 +7,11 @@
 安装运行时依赖：
 
 ```shell
-# 虚拟声卡
-brew install --cask blackhole-2ch
+# 依赖库
+brew install sdl2 spdlog boost onnxruntime
 
-# 外部依赖
-brew install sdl2 spdlog boost
+# 音频路由
+brew install --cask loopback
 ```
 
 终端窗口全屏展示效果最佳：
