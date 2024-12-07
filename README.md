@@ -12,6 +12,9 @@ brew install sdl2 spdlog boost onnxruntime
 
 # 音频路由
 brew install --cask loopback
+
+# 禁用纳米区域分配器
+export MallocNanoZone=0
 ```
 
 终端窗口全屏展示效果最佳：
@@ -55,4 +58,40 @@ start_time: 320ms,  end_time: 2336ms
 start_time: 3360ms, end_time: 3776ms
 start_time: 4160ms, end_time: 7968ms
 start_time: 8192ms, end_time: 10592ms
+```
+
+### 3、语音转文本
+
+[Whisper](https://github.com/openai/whisper) 提供了多种大小的模型供选择, 包括 small、medium 和 large 等, 不同大小的模型在精度、速度和计算资源占用方面有所差异.
+
+```shell
+# 模型下载
+# small.en 仅支持英文, 速度较快, 适合实时语音识别
+curl -L --output ggml-small.en.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.en.bin
+
+# medium.en 仅支持英文, 速度中等, 识别精度极佳，推荐转换字幕
+curl -L --output ggml-medium.en.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.en.bin
+```
+
+注意: Whisper 模型在大段静音、背景音乐或显著噪音的英文音频下存在严重的幻觉问题.
+
+下面是使用 [whisper.cpp](https://github.com/ggerganov/whisper.cpp) 离线跑模型实现语音识别 ASR 服务
+
+```text
+whisper_init_with_params_no_state: use gpu    = 1
+whisper_init_with_params_no_state: flash attn = 0
+whisper_init_with_params_no_state: gpu_device = 0
+whisper_init_with_params_no_state: dtw        = 0
+whisper_init_with_params_no_state: backends   = 3
+whisper_backend_init_gpu: using Metal backend
+ggml_metal_init: allocating
+ggml_metal_init: found device: Apple M1 Pro
+ggml_metal_init: picking default device: Apple M1 Pro
+ggml_metal_init: using embedded metal library
+ggml_metal_init: GPU name:   Apple M1 Pro
+ggml_metal_init: GPU family: MTLGPUFamilyApple7  (1007)
+ggml_metal_init: GPU family: MTLGPUFamilyCommon3 (3003)
+ggml_metal_init: GPU family: MTLGPUFamilyMetal3  (5001)
+
+And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country.
 ```

@@ -3,3 +3,5 @@ cmake-build-debug
 build
 .vscode
 .cache
+ggml-small.en.bin
+ggml-medium.en.bin

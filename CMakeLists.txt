@@ -6,15 +6,19 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -std=c++17")
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Debug or Release
-set(CMAKE_BUILD_TYPE Release)
+set(CMAKE_BUILD_TYPE Debug)
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g")
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=address")
 
 include_directories(/opt/homebrew/include/
-        third_party/spdlog/include/)
+        third_party/spdlog/include/
+        third_party/ggml/include/
+        third_party/whisper/include/)
 
 link_directories(/opt/homebrew/lib/
-        third_party/spdlog/lib/)
+        third_party/spdlog/lib/
+        third_party/ggml/lib/
+        third_party/whisper/lib/)
 
 # Ensure thread safety for SDL2
 add_definitions(-D_THREAD_SAFE)
@@ -49,10 +53,11 @@ foreach(_target main)
         Boost::boost)
 endforeach()
 
-foreach(_target test robot audio_vad)
+foreach(_target test audio_asr)
     add_executable(${_target} tests/${_target}.cc)
     target_link_libraries(${_target}
-            common_lib ssl crypto opus
+            common_lib ssl crypto opus whisper
             onnxruntime::onnxruntime
-            Boost::boost)
+            Boost::boost
+            "-framework Accelerate -framework Foundation -framework Metal -framework MetalKit")
 endforeach()
