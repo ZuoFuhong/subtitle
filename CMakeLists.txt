@@ -10,8 +10,11 @@ set(CMAKE_BUILD_TYPE Release)
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g")
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=address")
 
-include_directories(/opt/homebrew/include/)
-link_directories(/opt/homebrew/lib/)
+include_directories(/opt/homebrew/include/
+        third_party/spdlog/include/)
+
+link_directories(/opt/homebrew/lib/
+        third_party/spdlog/lib/)
 
 # Ensure thread safety for SDL2
 add_definitions(-D_THREAD_SAFE)
@@ -19,10 +22,6 @@ add_definitions(-D_THREAD_SAFE)
 # Find SDL2 installation
 find_package(SDL2 CONFIG REQUIRED)
 message(STATUS "Using SDL2 ${SDL2_VERSION}")
-
-# Find spdlog installation
-find_package(SPDLOG CONFIG REQUIRED)
-message(STATUS "Using spdlog ${SPDLOG_VERSION}")
 
 # Find boost installation
 find_package(Boost CONFIG REQUIRED)
@@ -44,10 +43,9 @@ add_library(common_lib
 foreach(_target main)
     add_executable(${_target} src/${_target}.cc)
     target_link_libraries(${_target}
-        common_lib ssl crypto opus
+        common_lib ssl crypto opus spdlog
         onnxruntime::onnxruntime
         SDL2::SDL2
-        spdlog::spdlog
         Boost::boost)
 endforeach()
 
