@@ -2,7 +2,7 @@
 #include <vector>
 #include <thread>
 #include <whisper.h>
-#include "../src/wav.h"
+#include "../third_party/wav.h"
 
 int main() {
     // 归一化预处理

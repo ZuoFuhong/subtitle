@@ -1,6 +1,6 @@
 #include <iostream>
 #include <vector>
-#include "../src/wav.h"
+#include "../third_party/wav.h"
 #include "../src/silero_vad.h"
 
 int main() {
