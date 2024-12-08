@@ -96,30 +96,29 @@ void VadSession::predict(const std::vector<float> &data) {
 
     // Reset temp_end when > threshold
     if (speech_prob >= threshold) {
-        if (temp_end != 0) {
+        if (temp_end != 0) { // 语音块容忍一些静默片段
             temp_end = 0;
             if (next_start < prev_end) {
-                next_start = current_sample - window_size_samples;
+                next_start = current_sample - window_size_samples; // 之前已进入静默, 记录新讲话的位置
             }
         }
-        if (!triggered) {
+        if (!triggered) { // 之前未讲话, 现在开始讲话
             triggered = true;
             current_speech.start = current_sample - window_size_samples;
         }
         return;
     }
 
-    if (triggered && current_sample - current_speech.start > max_speech_samples) {
-        if (prev_end > 0) {
+    if (triggered && current_sample - current_speech.start > max_speech_samples) { // 语音块太长进行分离
+        if (prev_end > 0) { // 说明之前已进入静默, 可以从长句中分离静默位置左侧的语音块
             current_speech.end = prev_end;
             speeches.push_back(current_speech);
             current_speech = Speech{};
 
-            // previously reached silence(< neg_thres) and is still not speech(< thres)
-            if (next_start < prev_end) {
+            if (next_start < prev_end) { // 之前已进入静默, 直到现在仍未讲话
                 triggered = false;
             } else {
-                current_speech.start = next_start;
+                current_speech.start = next_start; // 完成语音块分离, 不改变发言状态
             }
             prev_end = 0;
             next_start = 0;
@@ -138,17 +137,17 @@ void VadSession::predict(const std::vector<float> &data) {
 
     if (speech_prob < std::max(threshold - 0.15, 0.1) && triggered) {
         if (temp_end == 0) {
-            temp_end = current_sample;
+            temp_end = current_sample; // 记录静默的位置
         }
-        if (current_sample - temp_end > min_silence_samples_at_max_speech) {
-            prev_end = temp_end;
+        if (current_sample - temp_end > min_silence_samples_at_max_speech) { // 如果静默的持续时间低于这个值, 将继续认为信号中存在语音活动, 避免在短暂的停顿期间切断语音.
+            prev_end = temp_end; // 记录前一个静默的位置
         }
         if (current_sample - temp_end < min_silence_samples) {
-            // a. silence < min_slience_samples, continue speaking
+            // 在每个语音块结束时，等待 min_silence_duration_ms 再将其分离
         } else {
-            // b. silence >= min_slience_samples, end speaking
+            // 说话结束
             current_speech.end = temp_end;
-            if (current_speech.end - current_speech.start > min_speech_samples) {
+            if (current_speech.end - current_speech.start > min_speech_samples) { // 语音块太短就丢弃
                 speeches.push_back(current_speech);
             }
             current_speech = Speech{};
