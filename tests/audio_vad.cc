@@ -1,5 +1,5 @@
-#include <iostream>
 #include <vector>
+#include <iostream>
 #include "../third_party/wav.h"
 #include "../src/silero_vad.h"
 
@@ -16,9 +16,9 @@ int main() {
     }
 
     // 模型推理
-    VadIterator vad( "../resources/model/silero_vad.onnx");
-    vad.process(input_wav);
-    std::vector<AudioClip> stamps = vad.get_speech_timestamps();
+    VadSession session( "../resources/model/silero_vad.onnx");
+    session.process(input_wav);
+    std::vector<Speech> stamps = session.get_speeches();
     for (auto & stamp : stamps) {
         std::cout << "start_time: " << stamp.start / 16 << "ms, end_time: " << stamp.end / 16 << "ms" << std::endl;
     }

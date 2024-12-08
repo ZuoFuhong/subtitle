@@ -10,7 +10,7 @@
 #include <memory>
 #include "silero_vad.h"
 
-VadIterator::VadIterator(const std::string& model_path,
+VadSession::VadSession(const std::string& model_path,
                          int freq, int windows_frame_size,
                          float Threshold, int min_silence_duration_ms,
                          int speech_pad_ms, int min_speech_duration_ms,
@@ -38,32 +38,32 @@ VadIterator::VadIterator(const std::string& model_path,
     sr[0] = sample_rate;
 }
 
-void VadIterator::init_engine_threads(int inter_threads, int intra_threads) {
+void VadSession::init_engine_threads(int inter_threads, int intra_threads) {
     // The method should be called in each thread/proc in multi-thread/proc work
     session_options.SetIntraOpNumThreads(intra_threads);
     session_options.SetInterOpNumThreads(inter_threads);
     session_options.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
     session_options.SetLogSeverityLevel(OrtLoggingLevel::ORT_LOGGING_LEVEL_ERROR);
-};
+}
 
-void VadIterator::init_onnx_model(const std::string& model_path) {
+void VadSession::init_onnx_model(const std::string& model_path) {
     // Init threads = 1 for
     init_engine_threads(1, 1);
     // Load model
     session = std::make_shared<Ort::Session>(env, model_path.c_str(), session_options);
 }
 
-void VadIterator::reset_states() {
+void VadSession::reset_states() {
     std::memset(_state.data(), 0.0f, _state.size() * sizeof(float));
     triggered = false;
     temp_end = 0;
     current_sample = 0;
     prev_end = next_start = 0;
     speeches.clear();
-    current_speech = AudioClip{};
+    current_speech = Speech{};
 }
 
-void VadIterator::predict(const std::vector<float> &data) {
+void VadSession::predict(const std::vector<float> &data) {
     // Infer
     // Create ort tensors
     input.assign(data.begin(), data.end());
@@ -95,7 +95,7 @@ void VadIterator::predict(const std::vector<float> &data) {
     current_sample += window_size_samples;
 
     // Reset temp_end when > threshold
-    if ((speech_prob >= threshold)) {
+    if (speech_prob >= threshold) {
         if (temp_end != 0) {
             temp_end = 0;
             if (next_start < prev_end) {
@@ -109,11 +109,11 @@ void VadIterator::predict(const std::vector<float> &data) {
         return;
     }
 
-    if (triggered && ((current_sample - current_speech.start) > max_speech_samples)) {
+    if (triggered && current_sample - current_speech.start > max_speech_samples) {
         if (prev_end > 0) {
             current_speech.end = prev_end;
             speeches.push_back(current_speech);
-            current_speech = AudioClip{};
+            current_speech = Speech{};
 
             // previously reached silence(< neg_thres) and is still not speech(< thres)
             if (next_start < prev_end) {
@@ -127,7 +127,7 @@ void VadIterator::predict(const std::vector<float> &data) {
         } else {
             current_speech.end = current_sample;
             speeches.push_back(current_speech);
-            current_speech = AudioClip{};
+            current_speech = Speech{};
             prev_end = 0;
             next_start = 0;
             temp_end = 0;
@@ -136,41 +136,31 @@ void VadIterator::predict(const std::vector<float> &data) {
         return;
     }
 
-    if ((speech_prob >= (threshold - 0.15)) && (speech_prob < threshold)) {
-        return;
-    }
-
-    // 4) End
-    if (speech_prob < (threshold - 0.15)) {
-        if (triggered) {
-            if (temp_end == 0) {
-                temp_end = current_sample;
-            }
-            if (current_sample - temp_end > min_silence_samples_at_max_speech) {
-                prev_end = temp_end;
-            }
-            if ((current_sample - temp_end) < min_silence_samples) {
-                // a. silence < min_slience_samples, continue speaking
-            } else {
-                // b. silence >= min_slience_samples, end speaking
-                current_speech.end = temp_end;
-                if (current_speech.end - current_speech.start > min_speech_samples) {
-                    speeches.push_back(current_speech);
-                    current_speech = AudioClip{};
-                    prev_end = 0;
-                    next_start = 0;
-                    temp_end = 0;
-                    triggered = false;
-                }
-            }
-        } else {
-            // may first window see end state.
+    if (speech_prob < std::max(threshold - 0.15, 0.1) && triggered) {
+        if (temp_end == 0) {
+            temp_end = current_sample;
         }
-        return;
+        if (current_sample - temp_end > min_silence_samples_at_max_speech) {
+            prev_end = temp_end;
+        }
+        if (current_sample - temp_end < min_silence_samples) {
+            // a. silence < min_slience_samples, continue speaking
+        } else {
+            // b. silence >= min_slience_samples, end speaking
+            current_speech.end = temp_end;
+            if (current_speech.end - current_speech.start > min_speech_samples) {
+                speeches.push_back(current_speech);
+            }
+            current_speech = Speech{};
+            prev_end = 0;
+            next_start = 0;
+            temp_end = 0;
+            triggered = false;
+        }
     }
 }
 
-void VadIterator::process(const std::vector<float>& input_wav) {
+void VadSession::process(const std::vector<float>& input_wav) {
     reset_states();
     audio_length_samples = static_cast<int>(input_wav.size());
     for (int j = 0; j < audio_length_samples; j += window_size_samples) {
@@ -182,6 +172,6 @@ void VadIterator::process(const std::vector<float>& input_wav) {
     }
 }
 
-std::vector<AudioClip> VadIterator::get_speech_timestamps() const{
+std::vector<Speech> VadSession::get_speeches() const{
     return speeches;
 }

@@ -2,14 +2,14 @@
 
 #include <onnxruntime/onnxruntime_cxx_api.h>
 
-struct AudioClip {
+struct Speech {
     int start;
     int end;
 };
 
-class VadIterator {
+class VadSession {
 public:
-    explicit VadIterator(const std::string& model_path,
+    explicit VadSession(const std::string& model_path,
                 int freq = 16000, int windows_frame_size = 32,
                 float Threshold = 0.5, int min_silence_duration_ms = 100,
                 int speech_pad_ms = 30, int min_speech_duration_ms = 250,
@@ -17,7 +17,7 @@ public:
 
     void process(const std::vector<float>& input_wav);
 
-    [[nodiscard]] std::vector<AudioClip> get_speech_timestamps() const;
+    [[nodiscard]] std::vector<Speech> get_speeches() const;
 
 private:
     Ort::Env env;
@@ -52,9 +52,9 @@ private:
     int prev_end = 0;
     int next_start = 0;
 
-    // Output timestamp
-    std::vector<AudioClip> speeches;
-    AudioClip current_speech{};
+    // Output
+    std::vector<Speech> speeches;
+    Speech current_speech{};
 
     // Onnx model
     // Inputs
