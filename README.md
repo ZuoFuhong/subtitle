@@ -8,7 +8,7 @@
 
 ```shell
 # 依赖库
-brew install sdl2 spdlog boost onnxruntime
+brew install sdl2 spdlog boost
 
 # 音频路由
 brew install --cask loopback
@@ -83,18 +83,27 @@ And so my fellow Americans, ask not what your country can do for you, ask what y
 }
 ```
 
-下面是 Silero-vad ONNX 检测出的语音片段：
+使用 ffmpeg 切割音频片段播放验证:
+
+```shell
+ffmpeg -i jfk.wav -ss 00:00:00.230 -to 00:00:02.210 -acodec copy output1.wav
+ffmpeg -i jfk.wav -ss 00:00:03.290 -to 00:00:04.190 -acodec copy output2.wav
+ffmpeg -i jfk.wav -ss 00:00:05.290 -to 00:00:07.310 -acodec copy output3.wav
+ffmpeg -i jfk.wav -ss 00:00:08.150 -to 00:00:10.450 -acodec copy output4.wav
+```
+
+下面是 Silero-Vad ONNX 检测出的语音片段：
 
 ```shell
 # 音频帧位置
 start: 5120,   end: 37376
-start: 53760,  end: 60416
-start: 66560,  end: 127488
+start: 53760,  end: 68608
+start: 88576,  end: 127488
 start: 131072, end: 169472
 
 # 时间刻度
 start_time: 320ms,  end_time: 2336ms
-start_time: 3360ms, end_time: 3776ms
-start_time: 4160ms, end_time: 7968ms
+start_time: 3360ms, end_time: 4288ms
+start_time: 5536ms, end_time: 7968ms
 start_time: 8192ms, end_time: 10592ms
 ```
