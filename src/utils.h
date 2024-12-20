@@ -4,6 +4,10 @@
 #include <iostream>
 
 namespace utils {
+
+    // 清除空格
+    std::string trim(const std::string& str);
+
     // 时间戳, 单位: ms
     int64_t current_timestamp();
 

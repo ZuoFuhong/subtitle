@@ -5,6 +5,16 @@
 #include "utils.h"
 #include "../third_party/json.hpp"
 
+std::string utils::trim(const std::string& str) {
+    auto start = std::find_if_not(str.begin(), str.end(), [](unsigned char ch) {
+        return std::isspace(ch);
+    });
+    auto end = std::find_if_not(str.rbegin(), str.rend(), [](unsigned char ch) {
+        return std::isspace(ch);
+    }).base();
+    return (start < end) ? std::string(start, end) : std::string();
+}
+
 int64_t utils::current_timestamp() {
     std::chrono::system_clock::time_point now = std::chrono::system_clock::now();
     std::chrono::duration<double, std::milli> timestamp = now.time_since_epoch();

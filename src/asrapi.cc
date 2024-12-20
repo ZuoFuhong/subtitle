@@ -3,19 +3,25 @@
 #include <sstream>
 #include <cstring>
 #include <memory>
+#include <thread>
 #include <onnxruntime_cxx_api.h>
+#include <whisper.h>
 #include "asrapi.h"
 
 struct Speech {
     int start;
     int end;
+    std::string text;
 };
+
+static void cb_log_disable(enum ggml_log_level , const char * , void * ) { }
 
 class ASRSession {
 public:
-    explicit ASRSession(const std::string& model_path, int sample_rate = 16000, float threshold = 0.5,
+    explicit ASRSession(int sample_rate = 16000, float threshold = 0.5,
                         int window_size_samples = 512, int min_silence_duration_ms = 100, int min_speech_duration_ms = 1000) {
-        init_onnx_model(model_path);
+        init_whisper_model("../resources/model/ggml-small.en.bin");
+        init_onnx_model("../resources/model/silero_vad.onnx");
         m_window_size_samples = window_size_samples;
         m_threshold = threshold;
         sr_per_ms = sample_rate / 1000;
@@ -29,6 +35,11 @@ public:
         _state.resize(size_state);
         sr.resize(1);
         sr[0] = sample_rate;
+    }
+
+    ~ASRSession() {
+        samples_buffer.clear();
+        whisper_free(whisper_ctx);
     }
 
     void predict(const float* data, unsigned int nlen) {
@@ -102,7 +113,32 @@ public:
     }
 
     Speech get_speech() {
+        recognize_text(samples_buffer, current_speech.end - current_speech.start);
         return current_speech;
+    }
+
+    void recognize_text(std::vector<float> pcmf32, int n_samples) {
+        int32_t n_threads = std::min(4, (int32_t) std::thread::hardware_concurrency());
+        whisper_full_params wparams = whisper_full_default_params(WHISPER_SAMPLING_GREEDY);
+        wparams.print_progress   = false;
+        wparams.print_special    = false;
+        wparams.print_timestamps = false;
+        wparams.print_realtime   = false;
+        wparams.translate        = false;
+        wparams.single_segment   = true;
+        wparams.max_tokens       = 0;
+        wparams.language         = "en";
+        wparams.n_threads        = n_threads;
+        // Run the inference
+        if (whisper_full(whisper_ctx, wparams, pcmf32.data(), n_samples) != 0) {
+            exit(EXIT_FAILURE);
+        }
+        const int n_segments = whisper_full_n_segments(whisper_ctx);
+        if (n_segments > 0) {
+            current_speech.text = whisper_full_get_segment_text(whisper_ctx, 0);
+        } else {
+            current_speech.text = "";
+        }
     }
 
 private:
@@ -144,6 +180,9 @@ private:
     Speech current_speech{};
 
 private:
+    whisper_context* whisper_ctx = nullptr;
+
+private:
     void init_onnx_model(const std::string& model_path) {
         init_engine_threads();
         session = std::make_shared<Ort::Session>(env, model_path.c_str(), session_options);
@@ -154,10 +193,18 @@ private:
         session_options.SetInterOpNumThreads(1);
         session_options.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
     }
+
+    void init_whisper_model(const std::string& model_path) {
+        whisper_log_set(cb_log_disable, nullptr);
+        whisper_context_params cparams = whisper_context_default_params();
+        cparams.use_gpu    = true;
+        cparams.flash_attn = false;
+        whisper_ctx = whisper_init_from_file_with_params(model_path.c_str(), cparams);
+    }
 };
 
 ASRCode ASR_create_session(HANDLE& session) {
-    auto m_session = new ASRSession("../resources/model/silero_vad.onnx");
+    auto m_session = new ASRSession();
     session = static_cast<void*>(m_session);
     return ERROR_OK;
 }
@@ -204,7 +251,7 @@ ASRCode ASR_get_result(HANDLE session, std::string& res) {
     auto m_session = static_cast<ASRSession*>(session);
     auto speech = m_session->get_speech();
     std::ostringstream oss;
-    oss << "start: " << speech.start / 16 << "ms, end: " << speech.end / 16 << "ms";
+    oss << "[" << speech.start / 16 << "ms, " << speech.end / 16 << "ms] " << speech.text;
     res = oss.str();
     return ERROR_OK;
 }

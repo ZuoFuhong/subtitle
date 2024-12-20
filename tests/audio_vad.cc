@@ -58,7 +58,7 @@ int main() {
                 exit(EXIT_FAILURE);
             }
             if (!result.empty()) {
-                std::cout << "ASR res=" << result << std::endl;
+                std::cout << result << std::endl;
             }
         }
         nstatelast = nstate;
