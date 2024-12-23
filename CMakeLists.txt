@@ -11,19 +11,13 @@ set(CMAKE_BUILD_TYPE Debug)
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g")
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=address")
 
-include_directories(/opt/homebrew/include/
-        third_party/spdlog/include/
-        third_party/ggml/include/
-        third_party/whisper/include/
-        third_party/onnxruntime/include/
-        third_party/fmt/include/)
+include_directories(/opt/homebrew/include/)
+link_directories(/opt/homebrew/lib/)
 
-link_directories(/opt/homebrew/lib/
-        third_party/spdlog/lib/
-        third_party/ggml/lib/
-        third_party/whisper/lib/
-        third_party/onnxruntime/lib/
-        third_party/fmt/lib/)
+foreach (_target spdlog ggml whisper onnxruntime fmt)
+    include_directories(third_party/${_target}/include/)
+    link_directories(third_party/${_target}/lib/)
+endforeach()
 
 # Ensure thread safety for SDL2
 add_definitions(-D_THREAD_SAFE)
@@ -31,10 +25,6 @@ add_definitions(-D_THREAD_SAFE)
 # Find SDL2 installation
 find_package(SDL2 CONFIG REQUIRED)
 message(STATUS "Using SDL2 ${SDL2_VERSION}")
-
-# Find boost installation
-find_package(Boost CONFIG REQUIRED)
-message(STATUS "Using boost ${Boost_VERSION}")
 
 add_library(common_lib
         src/utils.cc
@@ -49,15 +39,13 @@ add_library(common_lib
 foreach(_target main)
     add_executable(${_target} src/${_target}.cc)
     target_link_libraries(${_target}
-        common_lib ssl crypto opus spdlog onnxruntime fmt
-        SDL2::SDL2
-        Boost::boost)
+        common_lib ssl crypto opus spdlog onnxruntime fmt curl
+        SDL2::SDL2)
 endforeach()
 
 foreach(_target test audio_vad)
     add_executable(${_target} tests/${_target}.cc)
     target_link_libraries(${_target}
-            common_lib ssl crypto opus whisper onnxruntime fmt
-            Boost::boost
+            common_lib ssl crypto opus whisper onnxruntime fmt curl
             "-framework Accelerate -framework Foundation -framework Metal -framework MetalKit")
 endforeach()

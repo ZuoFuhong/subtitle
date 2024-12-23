@@ -1,7 +1,7 @@
 #pragma once
 
-#include <cstdint>
-#include <iostream>
+#include <string_view>
+#include <set>
 
 namespace utils {
 
@@ -15,11 +15,11 @@ namespace utils {
     std::string format_timestamp(int64_t timestamp, const std::string& pattern = "%Y-%m-%d %H:%M:%S");
 
     // 替换字符串
-    void replace_substr(std::string& str, const std::string& old_substr, const std::string& new_substr);
+    void replace_substr(std::string& str, std::string_view old_substr, std::string_view new_substr);
 
     // 解析网络地址
     bool parse_address(const std::string& address, std::string& ip, unsigned short& port);
 
-    // 翻译英文句子
-    std::string translate_sentence(const std::string& sentence);
+    // 发送 POST 请求
+    bool http_post(std::string_view url, const std::set<std::string> &headers, std::string_view request, std::string &response, int &http_code);
 }
