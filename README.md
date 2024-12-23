@@ -7,9 +7,6 @@
 安装运行时依赖：
 
 ```shell
-# 依赖库
-brew install sdl2
-
 # 音频路由
 brew install --cask loopback
 
