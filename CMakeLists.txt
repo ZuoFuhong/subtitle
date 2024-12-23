@@ -15,13 +15,15 @@ include_directories(/opt/homebrew/include/
         third_party/spdlog/include/
         third_party/ggml/include/
         third_party/whisper/include/
-        third_party/onnxruntime/include/)
+        third_party/onnxruntime/include/
+        third_party/fmt/include/)
 
 link_directories(/opt/homebrew/lib/
         third_party/spdlog/lib/
         third_party/ggml/lib/
         third_party/whisper/lib/
-        third_party/onnxruntime/lib/)
+        third_party/onnxruntime/lib/
+        third_party/fmt/lib/)
 
 # Ensure thread safety for SDL2
 add_definitions(-D_THREAD_SAFE)
@@ -47,7 +49,7 @@ add_library(common_lib
 foreach(_target main)
     add_executable(${_target} src/${_target}.cc)
     target_link_libraries(${_target}
-        common_lib ssl crypto opus spdlog onnxruntime
+        common_lib ssl crypto opus spdlog onnxruntime fmt
         SDL2::SDL2
         Boost::boost)
 endforeach()
@@ -55,7 +57,7 @@ endforeach()
 foreach(_target test audio_vad)
     add_executable(${_target} tests/${_target}.cc)
     target_link_libraries(${_target}
-            common_lib ssl crypto opus whisper onnxruntime
+            common_lib ssl crypto opus whisper onnxruntime fmt
             Boost::boost
             "-framework Accelerate -framework Foundation -framework Metal -framework MetalKit")
 endforeach()
