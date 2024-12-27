@@ -48,7 +48,7 @@ foreach(_target main)
         "-framework MetalKit")
 endforeach()
 
-foreach(_target opencv)
+foreach(_target mnist_onnx)
     add_executable(${_target} tests/${_target}.cc)
     target_link_libraries(${_target}
             common_lib ssl crypto opus whisper onnxruntime fmt curl z tiff webp sharpyuv png jpeg openjp2 lzma
