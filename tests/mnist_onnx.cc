@@ -13,7 +13,7 @@ std::vector<float> preprocess_image(const cv::Mat& image) {
     return input_data;
 }
 
-int predict(std::shared_ptr<Ort::Session> session, std::string_view image_path) {
+int predict(const std::shared_ptr<Ort::Session>& session, std::string_view image_path) {
     // 创建输入张量
     cv::Mat image = cv::imread(image_path.data(), cv::IMREAD_GRAYSCALE);
     std::vector<float> input_data = preprocess_image(image);
@@ -34,8 +34,8 @@ int predict(std::shared_ptr<Ort::Session> session, std::string_view image_path) 
                               input_node_names.data(), ort_inputs.data(), ort_inputs.size(),
                               output_node_names.data(), output_node_names.size());
 
-    float* output_data = ort_outputs[0].GetTensorMutableData<float>();
-    return std::distance(output_data, std::max_element(output_data, output_data + 10));;
+    auto output_data = ort_outputs[0].GetTensorMutableData<float>();
+    return static_cast<int>(std::distance(output_data, std::max_element(output_data, output_data + 10)));
 }
 
 // C++ ONNXRuntime 加载 MNIST 模型进行推理识别手写数字
