@@ -7,6 +7,7 @@
 #include <onnxruntime_cxx_api.h>
 #include <whisper.h>
 #include "asrapi.h"
+#include "utils.h"
 
 struct Speech {
     int start;
@@ -18,8 +19,8 @@ static void cb_log_disable(enum ggml_log_level , const char * , void * ) { }
 
 class ASRSession {
 public:
-    explicit ASRSession(int sample_rate = 16000, float threshold = 0.5,
-                        int window_size_samples = 512, int min_silence_duration_ms = 100, int min_speech_duration_ms = 1000) {
+    explicit ASRSession(int sample_rate = 16000, float threshold = 0.4,
+                        int window_size_samples = 512, int min_silence_duration_ms = 32, int min_speech_duration_ms = 1000) {
         init_whisper_model("../resources/model/ggml-small.en.bin");
         init_onnx_model("../resources/model/silero_vad.onnx");
         m_window_size_samples = window_size_samples;
@@ -79,6 +80,7 @@ public:
             }
             if (!triggered) {
                 triggered = true;
+                current_speech = Speech{};
                 current_speech.start = current_sample - m_window_size_samples;
             }
             return;
@@ -93,7 +95,7 @@ public:
             } else if (current_sample - current_speech.start < min_speech_samples) {
                 // 发言片段太短
             } else {
-                current_speech.end = temp_end;
+                current_speech.end = temp_end; // 丢弃末尾片段
                 temp_end = 0;
                 triggered = false;
             }
@@ -105,7 +107,12 @@ public:
     }
 
     void push_buffer(const float* data, unsigned int nlen) {
-        samples_buffer.insert(samples_buffer.end(), data, data + nlen);
+        if (triggered) {
+            samples_buffer.insert(samples_buffer.end(), data, data + nlen);
+        } else {
+            // 保留一个窗口
+            samples_buffer.assign(data, data + nlen);
+        }
     }
 
     void reset_states() {
@@ -113,11 +120,15 @@ public:
     }
 
     Speech get_speech() {
-        recognize_text(samples_buffer, current_speech.end - current_speech.start);
         return current_speech;
     }
 
-    void recognize_text(std::vector<float> pcmf32, int n_samples) {
+    void recognize_text() {
+        int n_sample = static_cast<int>(samples_buffer.size());
+        recognize_text_with_whisper(samples_buffer, n_sample);
+    }
+
+    void recognize_text_with_whisper(std::vector<float> pcmf32, int n_samples) {
         int32_t n_threads = std::min(4, (int32_t) std::thread::hardware_concurrency());
         whisper_full_params wparams = whisper_full_default_params(WHISPER_SAMPLING_GREEDY);
         wparams.print_progress   = false;
@@ -135,7 +146,8 @@ public:
         }
         const int n_segments = whisper_full_n_segments(whisper_ctx);
         if (n_segments > 0) {
-            current_speech.text = whisper_full_get_segment_text(whisper_ctx, 0);
+            auto text = whisper_full_get_segment_text(whisper_ctx, 0);
+            current_speech.text = utils::trim(utils::to_upper_case(text));
         } else {
             current_speech.text = "";
         }
@@ -213,8 +225,6 @@ ASRCode ASR_begin_session(HANDLE session) {
     if (session == nullptr) {
         return ERROR_PARA;
     }
-    auto m_session = static_cast<ASRSession*>(session);
-    m_session->reset_states();
     return ERROR_OK;
 }
 
@@ -222,6 +232,9 @@ ASRCode ASR_end_session(HANDLE session) {
     if (session == nullptr) {
         return ERROR_PARA;
     }
+    auto m_session = static_cast<ASRSession*>(session);
+    m_session->recognize_text();
+    m_session->reset_states();
     return ERROR_OK;
 }
 

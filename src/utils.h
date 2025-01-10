@@ -5,6 +5,9 @@
 
 namespace utils {
 
+    // 字符串转大写
+    std::string to_upper_case(const std::string& str);
+
     // 清除空格
     std::string trim(const std::string& str);
 

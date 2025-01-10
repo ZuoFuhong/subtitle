@@ -89,18 +89,11 @@ ffmpeg -i jfk.wav -ss 00:00:05.290 -to 00:00:07.310 -acodec copy output3.wav
 ffmpeg -i jfk.wav -ss 00:00:08.150 -to 00:00:10.450 -acodec copy output4.wav
 ```
 
-下面是 Silero-Vad ONNX 检测出的语音片段：
+下面是 Silero-Vad + Whisper 流式识别的片段：
 
 ```shell
-# 音频帧位置
-start: 5120,   end: 37376
-start: 53760,  end: 68608
-start: 88576,  end: 127488
-start: 131072, end: 169472
-
-# 时间刻度
-start_time: 320ms,  end_time: 2336ms
-start_time: 3360ms, end_time: 4288ms
-start_time: 5536ms, end_time: 7968ms
-start_time: 8192ms, end_time: 10592ms
+[320ms, 2336ms] AND SO, MY FELLOW AMERICANS.
+[3360ms, 4288ms] ASK NOT.
+[5472ms, 8064ms] WHAT YOUR COUNTRY CAN DO FOR YOU.
+[8192ms, 10688ms] ASK WHAT YOU CAN DO FOR YOUR COUNTRY.
 ```

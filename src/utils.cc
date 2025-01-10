@@ -5,6 +5,13 @@
 #include <curl/curl.h>
 #include "utils.h"
 
+std::string utils::to_upper_case(const std::string& str) {
+    std::string result = str;
+    std::transform(result.begin(), result.end(), result.begin(),
+                   [](unsigned char c) { return std::toupper(c); });
+    return result;
+}
+
 std::string utils::trim(const std::string& str) {
     auto start = std::find_if_not(str.begin(), str.end(), [](unsigned char ch) {
         return std::isspace(ch);
