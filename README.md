@@ -1,6 +1,6 @@
 ## 实时字幕
 
-开源轻量的 macOS 实时字幕应用程序，在收听播客或观看视频时提供高质量的双语流式字幕。语音转写使用服务端 ASR 能力，翻译字幕使用 OpenAI gpt-3.5-turbo 模型接口。
+开源轻量的 macOS 实时字幕应用程序，在收听播客或观看视频时提供高质量的双语流式字幕。使用 Silero-Vad + Whisper 实现自动语音识别（ASR），翻译字幕使用 OpenAI gpt-3.5-turbo 模型 API。
 
 ![subtitile_preview](./docs/subtitle_youtube.png)
 
@@ -17,7 +17,7 @@ export MallocNanoZone=0
 终端窗口全屏展示效果最佳：
 
 ```shell
-# 仅支持 OpenAI API_KEY（可选）
+# 翻译配置 OpenAI API_KEY（可选）
 export OPENAI_API_KEY=sk-xxxxx
 
 # 指定 ASR 服务地址
