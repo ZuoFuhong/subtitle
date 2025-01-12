@@ -27,7 +27,7 @@ int main(int argc, char *argv[]) {
     parse(argc, argv, cli);
     signal(SIGINT, handle_sigint);
 
-    auto audio_queue = new LRUQueue("audio", 50);
+    auto audio_queue = new LRUQueue("audio", 100);
     auto subtitle_queue = new LRUQueue("subtitle", 10);
     auto window = SubtitleWindow::new_subtitle_window(subtitle_queue);
 

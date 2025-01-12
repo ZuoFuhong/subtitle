@@ -100,12 +100,28 @@ public:
         }
     }
 
-    [[nodiscard]] bool get_active_state() const {
+    [[nodiscard]] bool get_active_state() {
+        if (last_trigger_state && !triggered) {
+            recognize_text();
+            std::string_view text = current_speech.text;
+            if (!text.empty() && std::ispunct(text.back()) && text.back() != '-') { // 语义断句
+                // nothing to do
+                has_not_finished = false;
+            } else {
+                last_trigger_state = triggered;
+                has_not_finished = true;
+                return has_not_finished;
+            }
+        }
+        last_trigger_state = triggered;
+        if (has_not_finished) {
+            return true;
+        }
         return triggered;
     }
 
     void push_buffer(const float* data, unsigned int nlen) {
-        if (triggered) {
+        if (triggered || has_not_finished) {
             samples_buffer.insert(samples_buffer.end(), data, data + nlen);
         } else {
             // 保留一个窗口
@@ -183,6 +199,9 @@ private:
     int min_speech_samples;
 
     bool triggered = false;
+    bool last_trigger_state = false;
+    bool has_not_finished = false;
+
     int temp_end = 0;
     int current_sample = 0;
     std::vector<float> samples_buffer;
@@ -231,7 +250,6 @@ ASRCode ASR_end_session(HANDLE session) {
         return ERROR_PARA;
     }
     auto m_session = static_cast<ASRSession*>(session);
-    m_session->recognize_text();
     m_session->reset_states();
     return ERROR_OK;
 }
