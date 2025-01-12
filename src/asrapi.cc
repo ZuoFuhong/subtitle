@@ -1,6 +1,4 @@
 #include <vector>
-#include <iostream>
-#include <sstream>
 #include <cstring>
 #include <memory>
 #include <thread>
@@ -20,7 +18,7 @@ static void cb_log_disable(enum ggml_log_level , const char * , void * ) { }
 class ASRSession {
 public:
     explicit ASRSession(int sample_rate = 16000, float threshold = 0.4,
-                        int window_size_samples = 512, int min_silence_duration_ms = 32, int min_speech_duration_ms = 1000) {
+                        int window_size_samples = 512, int min_silence_duration_ms = 96, int min_speech_duration_ms = 1000) {
         init_whisper_model("../resources/model/ggml-small.en.bin");
         init_onnx_model("../resources/model/silero_vad.onnx");
         m_window_size_samples = window_size_samples;
