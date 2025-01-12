@@ -27,12 +27,13 @@ add_library(common_lib
         src/udp_codec.cc
         src/subtitle_window.cc
         src/convert_timer.cc
+        src/offline_convert_timer.cc
         src/asrapi.cc)
 
 foreach(_target main)
     add_executable(${_target} src/${_target}.cc)
     target_link_libraries(${_target}
-        common_lib ssl crypto opus spdlog onnxruntime fmt curl iconv SDL2
+        common_lib ssl crypto opus spdlog whisper onnxruntime fmt curl iconv SDL2
         "-framework AppKit"
         "-framework AudioToolbox"
         "-framework GameController"
@@ -44,6 +45,8 @@ foreach(_target main)
         "-framework CoreGraphics"
         "-framework CoreFoundation"
         "-framework ForceFeedback"
+        "-framework Accelerate"
+        "-framework Foundation"
         "-framework Metal"
         "-framework MetalKit")
 endforeach()

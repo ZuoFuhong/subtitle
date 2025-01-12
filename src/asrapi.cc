@@ -147,7 +147,7 @@ public:
         const int n_segments = whisper_full_n_segments(whisper_ctx);
         if (n_segments > 0) {
             auto text = whisper_full_get_segment_text(whisper_ctx, 0);
-            current_speech.text = utils::trim(utils::to_upper_case(text));
+            current_speech.text = utils::trim(text);
         } else {
             current_speech.text = "";
         }
@@ -263,8 +263,6 @@ ASRCode ASR_get_result(HANDLE session, std::string& res) {
     }
     auto m_session = static_cast<ASRSession*>(session);
     auto speech = m_session->get_speech();
-    std::ostringstream oss;
-    oss << "[" << speech.start / 16 << "ms, " << speech.end / 16 << "ms] " << speech.text;
-    res = oss.str();
+    res = speech.text;
     return ERROR_OK;
 }
