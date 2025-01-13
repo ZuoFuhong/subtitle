@@ -1,6 +1,6 @@
 ## 实时字幕
 
-开源轻量的 macOS 实时字幕应用程序，在收听播客或观看视频时提供高质量的双语流式字幕。使用 Silero-Vad + Whisper 实现自动语音识别（ASR），翻译字幕使用 OpenAI gpt-3.5-turbo 模型 API。
+开源轻量的 macOS 实时字幕应用程序，在收听播客或观看视频时提供高质量的双语流式字幕。使用 Silero-Vad + Whisper 实现自动语音识别（ASR），翻译字幕使用 DeepSeek-V3 模型 API。
 
 ![subtitile_preview](./docs/subtitle_youtube.png)
 
@@ -17,11 +17,14 @@ export MallocNanoZone=0
 终端窗口全屏展示效果最佳：
 
 ```shell
-# 翻译配置 OpenAI API_KEY（可选）
-export OPENAI_API_KEY=sk-xxxxx
+# DeepSeek API_KEY（可选）
+export DEEPSEEK_API_KEY=sk-xxxxx
 
-# 指定 ASR 服务地址
-./main -s 127.0.0.1:8000
+# 离线模式
+./main -m offline
+
+# 服务端 ASR
+./main -m server -s 9.135.97.184 8000
 ```
 
 ### 2、语音转文本
@@ -92,8 +95,8 @@ ffmpeg -i jfk.wav -ss 00:00:08.150 -to 00:00:10.450 -acodec copy output4.wav
 下面是 Silero-Vad + Whisper 流式识别的片段：
 
 ```shell
-[320ms, 2336ms] AND SO, MY FELLOW AMERICANS.
-[3360ms, 4288ms] ASK NOT.
-[5472ms, 8064ms] WHAT YOUR COUNTRY CAN DO FOR YOU.
-[8192ms, 10688ms] ASK WHAT YOU CAN DO FOR YOUR COUNTRY.
+{"end":37376,"se_id":1,"start":5120,"text":"And so, my fellow Americans."}
+{"end":86016,"se_id":2,"start":53760,"text":"Ask not."}
+{"end":129024,"se_id":3,"start":87552,"text":"what your country can do for you."}
+{"end":171008,"se_id":4,"start":131072,"text":"Ask what you can do for your country."}
 ```

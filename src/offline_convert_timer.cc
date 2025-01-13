@@ -76,15 +76,19 @@ void OfflineConvertTimer::start() {
                 exit(EXIT_FAILURE);
             }
             if (!result.empty()) {
-                size_t str_size = result.size();
-                auto body = new uint8_t[str_size];
-                std::memcpy(body, result.data(), str_size);
-                auto pkt = new Packet();
-                pkt->type = SUBTITLE;
-                pkt->timestamp = utils::current_timestamp();
-                pkt->body = body;
-                pkt->body_size = str_size;
-                m_subtitle_queue->push(pkt);
+                auto object = nlohmann::json::parse(result);
+                if (object.contains("text")) {
+                    std::string text = object["text"];
+                    size_t str_size = text.size();
+                    auto body = new uint8_t[str_size];
+                    std::memcpy(body, text.data(), str_size);
+                    auto pkt = new Packet();
+                    pkt->type = SUBTITLE;
+                    pkt->timestamp = utils::current_timestamp();
+                    pkt->body = body;
+                    pkt->body_size = str_size;
+                    m_subtitle_queue->push(pkt);
+                }
             }
         }
         nstatelast = nstate;
