@@ -18,7 +18,7 @@ static void cb_log_disable(enum ggml_log_level , const char * , void * ) { }
 class ASRSession {
 public:
     explicit ASRSession(int sample_rate = 16000, float threshold = 0.4,
-                        int window_size_samples = 512, int min_silence_duration_ms = 96, int min_speech_duration_ms = 1000) {
+                        int window_size_samples = 512, int min_silence_duration_ms = 96, int min_speech_duration_ms = 2000) {
         init_whisper_model("../resources/model/ggml-small.en.bin");
         init_onnx_model("../resources/model/silero_vad.onnx");
         m_window_size_samples = window_size_samples;
@@ -78,20 +78,23 @@ public:
             }
             if (!triggered) {
                 triggered = true;
-                current_speech = Speech{};
-                current_speech.start = current_sample - m_window_size_samples;
+                if (!has_not_finished) {
+                    current_speech = Speech{};
+                    current_speech.start = current_sample - m_window_size_samples;
+                }
             }
             return;
         }
         // 语音静默
         if (speech_prob < std::max(m_threshold - 0.15, 0.1) && triggered) {
+            if (current_sample - current_speech.start < min_speech_samples) {
+                return; // 发言片段太短
+            }
             if (temp_end == 0) {
                 temp_end = current_sample; // 记录静默的位置
             }
             if (current_sample - temp_end < min_silence_samples) {
                 // 在每个语音块结束时, 等待 min_silence_samples 再将其分离
-            } else if (current_sample - current_speech.start < min_speech_samples) {
-                // 发言片段太短
             } else {
                 current_speech.end = temp_end; // 丢弃末尾片段
                 temp_end = 0;
@@ -100,12 +103,20 @@ public:
         }
     }
 
+    static bool sentence_has_finished(std::string_view text) {
+        if (!text.empty() && !std::ispunct(text.back())) { // 非标点符号
+            return false;
+        }
+        std::array<std::string_view, 4> suffixes = {"--", "--.", "...", ","}; // 半句话后缀
+        return !std::any_of(suffixes.begin(), suffixes.end(), [text](std::string_view suffix) {
+           return utils::ends_with(text, suffix);
+        });
+    }
+
     [[nodiscard]] bool get_active_state() {
         if (last_trigger_state && !triggered) {
             recognize_text();
-            std::string_view text = current_speech.text;
-            if (!text.empty() && std::ispunct(text.back()) && text.back() != '-') { // 语义断句
-                // nothing to do
+            if (sentence_has_finished(current_speech.text)) { // 语义断句
                 has_not_finished = false;
             } else {
                 last_trigger_state = triggered;
@@ -133,8 +144,13 @@ public:
         samples_buffer.clear();
     }
 
-    Speech get_speech() {
-        return current_speech;
+    std::string get_speech() {
+        nlohmann::json speech;
+        speech["se_id"] = ++sequence;
+        speech["start"] = current_speech.start;
+        speech["end"] = current_speech.end;
+        speech["text"] = current_speech.text;
+        return speech.dump();
     }
 
     void recognize_text() {
@@ -202,6 +218,7 @@ private:
     bool last_trigger_state = false;
     bool has_not_finished = false;
 
+    int sequence = 0;
     int temp_end = 0;
     int current_sample = 0;
     std::vector<float> samples_buffer;
@@ -278,7 +295,6 @@ ASRCode ASR_get_result(HANDLE session, std::string& res) {
         return ERROR_PARA;
     }
     auto m_session = static_cast<ASRSession*>(session);
-    auto speech = m_session->get_speech();
-    res = speech.text;
+    res = m_session->get_speech();
     return ERROR_OK;
 }

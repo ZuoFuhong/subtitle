@@ -2,8 +2,12 @@
 
 #include <string_view>
 #include <set>
+#include "../third_party/json.hpp"
 
 namespace utils {
+
+    // 检查字符串后缀
+    bool ends_with(std::string_view str, std::string_view suffix);
 
     // 字符串转大写
     std::string to_upper_case(const std::string& str);

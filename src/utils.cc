@@ -5,6 +5,13 @@
 #include <curl/curl.h>
 #include "utils.h"
 
+bool utils::ends_with(std::string_view str, std::string_view suffix) {
+    if (str.length() < suffix.length()) {
+        return false;
+    }
+    return str.substr(str.length() - suffix.length()) == suffix;
+}
+
 std::string utils::to_upper_case(const std::string& str) {
     std::string result = str;
     std::transform(result.begin(), result.end(), result.begin(),
