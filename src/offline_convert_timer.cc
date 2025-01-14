@@ -33,10 +33,9 @@ void OfflineConvertTimer::start() {
         }
         // 归一化处理
         Packet* audio_pkt = m_audio_queue->pop();
-        auto body_ptr = reinterpret_cast<int16_t*>(audio_pkt->body);
-        for (int i = 0; i < audio_pkt->body_size / sizeof(int16_t); i++) {
-            auto sample = static_cast<float>(body_ptr[i]) / 32768;
-            samples_buffer.push_back(sample);
+        for (int i = 0; i < audio_pkt->body_size; i+=sizeof(int16_t)) {
+            auto sample = static_cast<int16_t>((audio_pkt->body[i + 1] << 8) | audio_pkt->body[i]);
+            samples_buffer.push_back(static_cast<float>(sample) / 32768);
         }
         delete audio_pkt;
         if (samples_buffer.size() < WINDOW_SIZE_SAMPLES) {
