@@ -2,14 +2,14 @@
 
 开源轻量的 macOS 实时字幕应用程序，在收听播客或观看视频时提供高质量的双语流式字幕。使用 Silero-Vad + Whisper 实现自动语音识别（ASR），翻译字幕使用 DeepSeek-V3 模型 API。
 
-![subtitile_preview](./docs/subtitle_youtube.png)
+![subtitle_preview](./docs/subtitle_youtube.png)
 
-编译项目: 
+编译项目：
 
 ```shell
 git clone -b master git@github.com:ZuoFuhong/subtitle.git
 
-# 关闭 Nano 内存分配器, 非 macOS 不是必须
+# 关闭 Nano 内存分配器，仅 macOS 需要
 export MallocNanoZone=0
 
 mkdir -p build
@@ -25,7 +25,7 @@ make
 brew install --cask loopback
 
 # 下载模型
-cd subtitle/resources/model
+cd resources/model
 curl -L --output ggml-small.en.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.en.bin
 ```
 
@@ -34,6 +34,8 @@ curl -L --output ggml-small.en.bin https://huggingface.co/ggerganov/whisper.cpp/
 ```shell
 # DeepSeek API_KEY（可选）
 export DEEPSEEK_API_KEY=sk-xxxxx
+
+cd build
 
 # 离线模式
 ./main -m offline
