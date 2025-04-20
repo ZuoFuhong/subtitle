@@ -20,10 +20,10 @@ int main() {
         std::cerr << "ASR_create_session err code=" << code << std::endl;
         exit(EXIT_FAILURE);
     }
-    int cursor = 0; // 游标
+    size_t cursor = 0; // 游标
     int nstate = 0; // 0-没说话 1-在说话
     int nstatelast = 0;
-    int window_size_samples = 512; // 窗口
+    size_t window_size_samples = 512; // 窗口
     while (cursor + window_size_samples < audio_wav.size()) {
         code = ASR_push_buffer(session, audio_wav.data() + cursor,  window_size_samples);
         if (code != ASRCode::ERROR_OK) {

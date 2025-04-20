@@ -10,7 +10,6 @@ const int BIT_RATE = 32000; // 比特率, 暂不支持动态调整
 const int BUFFER_SIZE = 640; // 缓冲区
 
 AudioCodec* AudioCodec::new_audio_codec() {
-    // 编码器
     int err;
     OpusEncoder *encoder = opus_encoder_create(SAMPLE_RATE, CHANNELS, OPUS_APPLICATION_VOIP, &err);
     if (err < 0) {
@@ -19,7 +18,6 @@ AudioCodec* AudioCodec::new_audio_codec() {
     }
     opus_encoder_ctl(encoder, OPUS_SET_BITRATE(BIT_RATE));
 
-    // 解码器
     OpusDecoder *decoder = opus_decoder_create(SAMPLE_RATE, CHANNELS, &err);
     if (err < 0) {
         std::cerr << "Failed to create decoder: " << opus_strerror(err) << std::endl;
@@ -33,7 +31,7 @@ AudioCodec* AudioCodec::new_audio_codec() {
 
 void int16_to_uint8(const int16_t* input, uint8_t* output, size_t input_size) {
     for (size_t i = 0; i < input_size; ++i) {
-        // 小端字节序
+        // Little-endian
         output[i * 2] = static_cast<uint8_t>(input[i] & 0xFF);
         output[i * 2 + 1] = static_cast<uint8_t>((input[i] >> 8) & 0xFF);
     }
@@ -45,12 +43,10 @@ void uint8_to_int16(const uint8_t* input, int16_t* output, size_t input_size) {
         exit(-1);
     }
     for (size_t i = 0; i < input_size; i += 2) {
-        // 小端字节序
         output[i / 2] = static_cast<int16_t>(input[i] | (input[i + 1] << 8));
     }
 }
 
-// 音频编码
 Packet* AudioCodec::encode(Packet* av_packet) {
     int16_t pcm_buffer[FRAME_SIZE * CHANNELS];
     uint8_to_int16(av_packet->body, pcm_buffer, av_packet->body_size);
@@ -69,7 +65,6 @@ Packet* AudioCodec::encode(Packet* av_packet) {
     return packet;
 }
 
-// 音频解码
 Packet* AudioCodec::decode(Packet* opus_packet) {
     int16_t pcm_buffer[FRAME_SIZE * CHANNELS];
 

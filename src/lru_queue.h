@@ -1,7 +1,6 @@
 #pragma once
 
 #include "packet.h"
-#include <iostream>
 #include <mutex>
 #include <queue>
 
@@ -21,7 +20,6 @@ public:
 
     uint32_t size();
 
-    // 负载水平
     float load_ratio();
 private:
     std::string m_name;

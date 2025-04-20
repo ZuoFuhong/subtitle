@@ -4,7 +4,6 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
-#include <utility>
 #include <thread>
 #include "../src/packet.h"
 #include "../src/audio_codec.h"

@@ -5,7 +5,7 @@
 // 采样数 20ms 音频
 const int FRAME_SIZE = 320;
 
-// 本地音频驱动
+// 虚拟音频设备
 const char* AUDIO_DEVICE_NAME = "Loopback";
 
 AudioRecorder::AudioRecorder() = default;
@@ -19,7 +19,7 @@ AudioRecorder* AudioRecorder::new_audio_recorder(LRUQueue* m_queue) {
     desired_spec.freq = 16000;
     desired_spec.format = AUDIO_S16;
     desired_spec.channels = 1;
-    desired_spec.samples = FRAME_SIZE; // 回调函数每次处理 20ms 的音频
+    desired_spec.samples = FRAME_SIZE;
     desired_spec.userdata = m_queue;
     desired_spec.callback =  [](void * userdata, uint8_t* stream, int nlen) {
         auto audio_queue = (LRUQueue *)userdata;

@@ -1,8 +1,6 @@
 #pragma once
 
 #include <cstdint>
-#include <iostream>
-#include <utility>
 
 const int AUDIO    = 1;
 const int VIDEO    = 2;

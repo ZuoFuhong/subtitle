@@ -2,6 +2,7 @@
 #include <sstream>
 #include <iostream>
 #include <iomanip>
+#include <string>
 #include <curl/curl.h>
 #include "utils.h"
 
@@ -76,31 +77,37 @@ static size_t write_callback(void* contents, size_t size, size_t nmemb, void* us
     return realsize;
 }
 
-bool utils::http_post(std::string_view url, const std::set<std::string> &headers, std::string_view request, std::string &response, int &http_code) {
-    curl_global_init(CURL_GLOBAL_DEFAULT);
-    CURL* curl = curl_easy_init();
-    if (curl) {
-        struct curl_slist *req_headers = nullptr;
-        for (const std::string& item : headers) {
-            req_headers = curl_slist_append(req_headers, item.c_str());
-        }
-        curl_easy_setopt(curl, CURLOPT_URL, url.data());
-        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, req_headers);
-        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, request.data());
-        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
-        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
+bool utils::http_post(std::string_view url, const std::set<std::string> &headers, const std::string& request, std::string &response, int &http_code) {
+    static bool curl_initialized = false;
+    if (!curl_initialized) {
+        curl_global_init(CURL_GLOBAL_DEFAULT);
+        curl_initialized = true;
+    }
+    auto curl = curl_easy_init();
+    if (!curl) {
+        std::cerr << "http_post curl_easy_init() failed" << std::endl;
+        return false;
+    }
+    struct curl_slist *req_headers = nullptr;
+    for (const std::string& item : headers) {
+        req_headers = curl_slist_append(req_headers, item.c_str());
+    }
+    curl_easy_setopt(curl, CURLOPT_URL, url.data());
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, req_headers);
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, request.c_str());
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
 
-        CURLcode res = curl_easy_perform(curl);
-        if (res != CURLE_OK) {
-            std::cerr << "http_post curl_easy_perform() failed: " << curl_easy_strerror(res) << std::endl;
-            http_code = 500;
-            return false;
-        } else {
-            curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE , &http_code);
-        }
+    CURLcode res = curl_easy_perform(curl);
+    if (res != CURLE_OK) {
+        std::cerr << "http_post curl_easy_perform() failed: " << curl_easy_strerror(res) << std::endl;
         curl_slist_free_all(req_headers);
         curl_easy_cleanup(curl);
+        return false;
+    } else {
+        curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE , &http_code);
     }
-    curl_global_cleanup();
+    curl_slist_free_all(req_headers);
+    curl_easy_cleanup(curl);
     return true;
 }

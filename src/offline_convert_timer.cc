@@ -1,7 +1,9 @@
+#include <iostream>
 #include <thread>
 #include "offline_convert_timer.h"
 #include "asrapi.h"
 #include "utils.h"
+#include "../third_party/json.hpp"
 
 // 音频包 20ms
 const int FRAME_DURATION = 32;

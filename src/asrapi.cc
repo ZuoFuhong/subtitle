@@ -6,6 +6,7 @@
 #include <whisper.h>
 #include "asrapi.h"
 #include "utils.h"
+#include "../third_party/json.hpp"
 
 struct Speech {
     int start;
@@ -277,7 +278,7 @@ ASRCode ASR_push_buffer(HANDLE session, const float* pdata, unsigned int nlen) {
     }
     auto m_session = static_cast<ASRSession*>(session);
     m_session->push_buffer(pdata, nlen);
-    m_session->predict(pdata, nlen); // Vad 推理
+    m_session->predict(pdata, nlen);
     return ERROR_OK;
 }
 

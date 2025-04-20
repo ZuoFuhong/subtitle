@@ -4,17 +4,32 @@
 
 ![subtitile_preview](./docs/subtitle_youtube.png)
 
+编译项目: 
+
+```shell
+git clone -b master git@github.com:ZuoFuhong/subtitle.git
+
+# 关闭 Nano 内存分配器, 非 macOS 不是必须
+export MallocNanoZone=0
+
+mkdir -p build
+cd build
+cmake ..
+make
+```
+
 安装运行时依赖：
 
 ```shell
-# 音频路由
+# 虚拟音频设备
 brew install --cask loopback
 
-# 禁用纳米区域分配器
-export MallocNanoZone=0
+# 下载模型
+cd subtitle/resources/model
+curl -L --output ggml-small.en.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.en.bin
 ```
 
-终端窗口全屏展示效果最佳：
+全屏展示窗口效果最佳：
 
 ```shell
 # DeepSeek API_KEY（可选）
@@ -23,7 +38,7 @@ export DEEPSEEK_API_KEY=sk-xxxxx
 # 离线模式
 ./main -m offline
 
-# 服务端 ASR
+# 服务端 ASR 模式
 ./main -m server -s 9.135.97.184 8000
 ```
 

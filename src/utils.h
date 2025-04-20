@@ -2,7 +2,6 @@
 
 #include <string_view>
 #include <set>
-#include "../third_party/json.hpp"
 
 namespace utils {
 
@@ -28,5 +27,5 @@ namespace utils {
     bool parse_address(const std::string& address, std::string& ip, unsigned short& port);
 
     // 发送 POST 请求
-    bool http_post(std::string_view url, const std::set<std::string> &headers, std::string_view request, std::string &response, int &http_code);
+    bool http_post(std::string_view url, const std::set<std::string> &headers, const std::string& request, std::string &response, int &http_code);
 }

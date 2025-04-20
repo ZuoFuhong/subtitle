@@ -1,7 +1,10 @@
+#include <iostream>
 #include <thread>
 #include <fmt/format.h>
+#include <SDL2/SDL.h>
 #include "subtitle_window.h"
 #include "utils.h"
+#include "../third_party/json.hpp"
 
 SubtitleWindow::SubtitleWindow() = default;
 
@@ -19,36 +22,7 @@ SubtitleWindow* SubtitleWindow::new_subtitle_window(LRUQueue* m_subtitle_queue) 
     return window;
 }
 
-void SubtitleWindow::run() {
-    bool quit = false;
-    SDL_Event event;
-    while (!quit) {
-        while (SDL_PollEvent(&event)) {
-            if (event.type == SDL_QUIT) {
-                quit = true;
-                continue;
-            }
-            if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_SPACE) {
-                std::cout << "space keydown event" << std::endl;
-            }
-        }
-        if (m_subtitle_queue->size() > 0) {
-            auto pkt = m_subtitle_queue->pop();
-            auto ts = utils::format_timestamp(pkt->timestamp, "%H:%M:%S");
-            auto sentence = std::string(reinterpret_cast<const char*>(pkt->body), pkt->body_size);
-            std::cout << "[" << ts << "] " << sentence << std::endl;
-            auto sentence_zh = translate_sentence(sentence);
-            if (!sentence.empty()) {
-                std::cout << "[" << ts << "] " << "\033[38;5;222m" << sentence_zh << "\033[0m" << std::endl;
-            }
-            delete pkt;
-        }
-        // 每秒 30 帧
-        std::this_thread::sleep_for(std::chrono::microseconds(33333));
-    }
-}
-
-std::string SubtitleWindow::translate_sentence(std::string_view sentence) {
+std::string translate_sentence(std::string_view sentence) {
     std::string apikey = std::getenv("DEEPSEEK_API_KEY");
     if (apikey.empty()) {
         std::cerr <<"DEEPSEEK_API_KEY environment variable is not configured." << std::endl;
@@ -83,4 +57,33 @@ std::string SubtitleWindow::translate_sentence(std::string_view sentence) {
         }
     }
     return target_text;
+}
+
+void SubtitleWindow::run() {
+    bool quit = false;
+    SDL_Event event;
+    while (!quit) {
+        while (SDL_PollEvent(&event)) {
+            if (event.type == SDL_QUIT) {
+                quit = true;
+                continue;
+            }
+            if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_SPACE) {
+                std::cout << "space keydown event" << std::endl;
+            }
+        }
+        if (m_subtitle_queue->size() > 0) {
+            auto pkt = m_subtitle_queue->pop();
+            auto ts = utils::format_timestamp(pkt->timestamp, "%H:%M:%S");
+            auto sentence = std::string(reinterpret_cast<const char*>(pkt->body), pkt->body_size);
+            std::cout << "[" << ts << "] " << sentence << std::endl;
+            auto sentence_zh = translate_sentence(sentence);
+            if (!sentence.empty()) {
+                std::cout << "[" << ts << "] " << "\033[38;5;222m" << sentence_zh << "\033[0m" << std::endl;
+            }
+            delete pkt;
+        }
+        // 控制频率 30 FPS
+        std::this_thread::sleep_for(std::chrono::microseconds(33333));
+    }
 }

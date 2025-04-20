@@ -1,6 +1,5 @@
 #include <iostream>
 #include <spdlog/spdlog.h>
-#include "spdlog/sinks/stdout_color_sinks.h"
 #include "audio_recorder.h"
 #include "lru_queue.h"
 #include "convert_timer.h"
@@ -31,11 +30,9 @@ int main(int argc, char *argv[]) {
     auto subtitle_queue = new LRUQueue("subtitle", 10);
     auto window = SubtitleWindow::new_subtitle_window(subtitle_queue);
 
-    // 音频采集
     auto audio_recorder = AudioRecorder::new_audio_recorder(audio_queue);
     audio_recorder->turn_on();
 
-    // 语音识别
     if (mode == "server") {
         std::string ip;
         unsigned short port;
@@ -53,7 +50,6 @@ int main(int argc, char *argv[]) {
         std::thread(&OfflineConvertTimer::start, convert_timer).detach();
     }
 
-    // 字幕上屏
     window->run();
     return 0;
 }
