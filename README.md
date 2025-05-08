@@ -18,20 +18,12 @@ cmake ..
 make
 ```
 
-安装运行时依赖：
+全屏展示窗口效果最佳：
 
 ```shell
 # 虚拟音频设备
 brew install --cask loopback
 
-# 下载模型
-cd resources/model
-curl -L --output ggml-small.en.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.en.bin
-```
-
-全屏展示窗口效果最佳：
-
-```shell
 # DeepSeek API_KEY（可选）
 export DEEPSEEK_API_KEY=sk-xxxxx
 
