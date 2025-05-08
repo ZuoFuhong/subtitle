@@ -48,4 +48,10 @@ namespace utils {
 
     // 发送 POST 请求
     bool http_post(std::string_view url, const std::set<std::string> &headers, const std::string& request, std::string &response, int &http_code);
+
+    // 下载文件
+    bool curl_download(std::string_view target_url, std::string_view filepath, std::string_view limit_rate);
+
+    // 创建目录
+    bool create_directories(std::string_view filepath);
 }

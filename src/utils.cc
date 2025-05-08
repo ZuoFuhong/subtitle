@@ -23,7 +23,9 @@
 #include <iostream>
 #include <iomanip>
 #include <string>
+#include <fmt/format.h>
 #include <curl/curl.h>
+#include <filesystem>
 #include "utils.h"
 
 bool utils::ends_with(std::string_view str, std::string_view suffix) {
@@ -129,5 +131,30 @@ bool utils::http_post(std::string_view url, const std::set<std::string> &headers
     }
     curl_slist_free_all(req_headers);
     curl_easy_cleanup(curl);
+    return true;
+}
+
+bool utils::curl_download(std::string_view target_url, std::string_view filepath, std::string_view limit_rate) {
+    if (!create_directories(filepath)) {
+        return false;
+    }
+    std::string command = fmt::format("curl -L --limit-rate '{}' -C - -o '{}' '{}'", limit_rate, filepath, target_url);
+    int result = system(command.c_str());
+    if (result != 0) {
+        std::cerr << "Failed to execute command: " << command << std::endl;
+        return false;
+    }
+    return true;
+}
+
+bool utils::create_directories(std::string_view filepath) {
+    std::filesystem::path tmp_filepath(filepath);
+    auto dir_path = tmp_filepath.parent_path();
+    if (!std::filesystem::exists(dir_path)) {
+        if (!std::filesystem::create_directories(dir_path)) {
+            std::cerr << "Failed to create directories: " << dir_path << std::endl;
+            return false;
+        }
+    }
     return true;
 }
