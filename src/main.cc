@@ -18,6 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+#include <cstdlib>
 #include <iostream>
 #include <spdlog/spdlog.h>
 #include <filesystem>
@@ -63,6 +64,33 @@ void prepare_model_file(std::string_view model_name) {
     }
 }
 
+std::string prepare_audio_device() {
+    if (SDL_Init(SDL_INIT_EVENTS | SDL_INIT_AUDIO) < 0) {
+        std::cerr << "SDL could not initialize! Get_Error: " << SDL_GetError() << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    int numDevices = SDL_GetNumAudioDevices(1); // 音频输入设备
+    if (numDevices == 0) {
+        spdlog::error("No audio devices found.");
+        exit(EXIT_FAILURE);
+    }
+    std::cout << "Available audio devices:" << std::endl;
+    for (int i = 0; i < numDevices; ++i) {
+        const char* deviceName = SDL_GetAudioDeviceName(i, 1);
+        std::cout << i << ": " << deviceName << std::endl;
+    }
+    int selected = -1;
+    std::cout << "Please select an audio device by number: ";
+    std::cin >> selected;
+    if (selected < 0 || selected >= numDevices) {
+        spdlog::error("Invalid device number selected.");
+        exit(EXIT_FAILURE);
+    }
+    const char* device_name = SDL_GetAudioDeviceName(selected, 1);
+    std::cout << "You selected device: " << device_name << std::endl;
+    return device_name;
+}
+
 int main(int argc, char *argv[]) {
     spdlog::set_level(spdlog::level::info);
     std::string address = "127.0.0.1:8000";
@@ -82,12 +110,13 @@ int main(int argc, char *argv[]) {
     }
     signal(SIGINT, handle_sigint);
     prepare_model_file(model_name);
+    std::string audio_device_name = prepare_audio_device();
 
     auto audio_queue = new LRUQueue("audio", 100);
     auto subtitle_queue = new LRUQueue("subtitle", 10);
-    auto window = SubtitleWindow::new_subtitle_window(subtitle_queue);
+    auto window = new SubtitleWindow(subtitle_queue);
 
-    auto audio_recorder = AudioRecorder::new_audio_recorder(audio_queue);
+    auto audio_recorder = new AudioRecorder(audio_queue, audio_device_name);
     audio_recorder->turn_on();
 
     if (mode == "server") {
@@ -98,13 +127,13 @@ int main(int argc, char *argv[]) {
             exit(EXIT_FAILURE);
         }
         spdlog::info("ASR server target: {}", address);
-        auto convert_timer = ConvertTimer::new_convert_timer(audio_queue, subtitle_queue);
+        auto convert_timer = new ConvertTimer(audio_queue, subtitle_queue);
         convert_timer->set_target(ip, port);
         std::thread(&ConvertTimer::start, convert_timer).detach();
     } else {
         // 离线模式
         spdlog::info("ASR offline mode with `{}` model.", model_name);
-        auto convert_timer = OfflineConvertTimer::new_convert_timer(audio_queue, subtitle_queue);
+        auto convert_timer = new OfflineConvertTimer(audio_queue, subtitle_queue);
         std::thread(&OfflineConvertTimer::start, convert_timer).detach();
     }
 

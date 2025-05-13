@@ -21,9 +21,6 @@ make
 全屏展示窗口效果最佳：
 
 ```shell
-# 虚拟音频设备
-brew install --cask loopback
-
 # DeepSeek API_KEY（可选）
 export DEEPSEEK_API_KEY=sk-xxxxx
 

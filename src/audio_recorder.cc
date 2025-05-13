@@ -18,18 +18,13 @@
 // SOFTWARE.
 
 #include "audio_recorder.h"
-#include "utils.h"
 #include <spdlog/spdlog.h>
+#include "utils.h"
 
 // 采样数 20ms 音频
 const int FRAME_SIZE = 320;
 
-// 虚拟音频设备
-const char* AUDIO_DEVICE_NAME = "Loopback";
-
-AudioRecorder::AudioRecorder() = default;
-
-AudioRecorder* AudioRecorder::new_audio_recorder(LRUQueue* m_queue) {
+AudioRecorder::AudioRecorder(LRUQueue* audio_queue, std::string_view audio_device_name) {
     SDL_AudioSpec desired_spec;
     SDL_AudioSpec obtained_spec;
     SDL_zero(desired_spec);
@@ -39,7 +34,7 @@ AudioRecorder* AudioRecorder::new_audio_recorder(LRUQueue* m_queue) {
     desired_spec.format = AUDIO_S16;
     desired_spec.channels = 1;
     desired_spec.samples = FRAME_SIZE;
-    desired_spec.userdata = m_queue;
+    desired_spec.userdata = audio_queue;
     desired_spec.callback =  [](void * userdata, uint8_t* stream, int nlen) {
         auto audio_queue = (LRUQueue *)userdata;
 
@@ -53,16 +48,13 @@ AudioRecorder* AudioRecorder::new_audio_recorder(LRUQueue* m_queue) {
         pkt->body_size = nlen;
         audio_queue->push(pkt);
     };
-    SDL_AudioDeviceID audio_device = SDL_OpenAudioDevice(
-            AUDIO_DEVICE_NAME, SDL_TRUE, &desired_spec, &obtained_spec, 0);
+    SDL_AudioDeviceID audio_device = SDL_OpenAudioDevice(audio_device_name.data(), SDL_TRUE, &desired_spec, &obtained_spec, 0);
     if (audio_device == 0) {
         spdlog::error("Failed to open audio device, error: {}", SDL_GetError());
         exit(EXIT_FAILURE);
     }
-    auto audio_recorder = new AudioRecorder();
-    audio_recorder->m_queue = m_queue;
-    audio_recorder->audio_device = audio_device;
-    return audio_recorder;
+    m_audio_device = audio_device;
+    m_audio_queue = audio_queue;
 }
 
 void AudioRecorder::turn_on() {
@@ -70,14 +62,14 @@ void AudioRecorder::turn_on() {
         return;
     }
     started = true;
-    SDL_PauseAudioDevice(audio_device, 0);
+    SDL_PauseAudioDevice(m_audio_device, 0);
 }
 
 void AudioRecorder::turn_off() {
     started = false;
-    SDL_PauseAudioDevice(audio_device, 1);
+    SDL_PauseAudioDevice(m_audio_device, 1);
 }
 
 AudioRecorder::~AudioRecorder() {
-    SDL_CloseAudioDevice(audio_device);
+    SDL_CloseAudioDevice(m_audio_device);
 }

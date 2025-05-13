@@ -35,15 +35,9 @@ const int FRAME_DURATION = 20;
 // 缓冲区-最大传输单元
 const int BUFFER_SIZE = 1200;
 
-ConvertTimer::ConvertTimer() = default;
-
-ConvertTimer::~ConvertTimer() = default;
-
-ConvertTimer* ConvertTimer::new_convert_timer(LRUQueue* m_audio_queue, LRUQueue* m_subtitle_queue) {
-    auto timer = new ConvertTimer();
-    timer->m_audio_queue = m_audio_queue;
-    timer->m_subtitle_queue = m_subtitle_queue;
-    return timer;
+ConvertTimer::ConvertTimer(LRUQueue* audio_queue, LRUQueue* subtitle_queue) {
+    m_audio_queue = audio_queue;
+    m_subtitle_queue = subtitle_queue;
 }
 
 void ConvertTimer::set_target(std::string ip, unsigned short port) {

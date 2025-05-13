@@ -31,11 +31,9 @@ const int FRAME_DURATION = 32;
 // 语音活动窗口
 const int WINDOW_SIZE_SAMPLES = 512;
 
-OfflineConvertTimer* OfflineConvertTimer::new_convert_timer(LRUQueue* audio_queue, LRUQueue* subtitle_queue) {
-    auto timer = new OfflineConvertTimer();
-    timer->m_audio_queue = audio_queue;
-    timer->m_subtitle_queue = subtitle_queue;
-    return timer;
+OfflineConvertTimer::OfflineConvertTimer(LRUQueue* audio_queue, LRUQueue* subtitle_queue) {
+    m_audio_queue = audio_queue;
+    m_subtitle_queue = subtitle_queue;
 }
 
 void OfflineConvertTimer::start() {
