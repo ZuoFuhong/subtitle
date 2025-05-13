@@ -24,11 +24,9 @@
 
 class ConvertTimer {
 public:
-    ConvertTimer();
+    ConvertTimer(LRUQueue* audio_queue, LRUQueue* subtitle_queue);
 
-    ~ConvertTimer();
-
-    static ConvertTimer* new_convert_timer(LRUQueue* m_audio_queue, LRUQueue* m_subtitle_queue);
+    ~ConvertTimer() = default;
 
     [[noreturn]] void start();
 

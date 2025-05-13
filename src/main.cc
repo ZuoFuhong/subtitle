@@ -127,13 +127,13 @@ int main(int argc, char *argv[]) {
             exit(EXIT_FAILURE);
         }
         spdlog::info("ASR server target: {}", address);
-        auto convert_timer = ConvertTimer::new_convert_timer(audio_queue, subtitle_queue);
+        auto convert_timer = new ConvertTimer(audio_queue, subtitle_queue);
         convert_timer->set_target(ip, port);
         std::thread(&ConvertTimer::start, convert_timer).detach();
     } else {
         // 离线模式
         spdlog::info("ASR offline mode with `{}` model.", model_name);
-        auto convert_timer = OfflineConvertTimer::new_convert_timer(audio_queue, subtitle_queue);
+        auto convert_timer = new OfflineConvertTimer(audio_queue, subtitle_queue);
         std::thread(&OfflineConvertTimer::start, convert_timer).detach();
     }
 

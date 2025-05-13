@@ -24,10 +24,9 @@
 
 class OfflineConvertTimer {
 public:
-    OfflineConvertTimer() = default;
-    ~OfflineConvertTimer() = default;
+    OfflineConvertTimer(LRUQueue* audio_queue, LRUQueue* subtitle_queue);
 
-    static OfflineConvertTimer* new_convert_timer(LRUQueue* audio_queue, LRUQueue* subtitle_queue);
+    ~OfflineConvertTimer() = default;
 
     [[noreturn]] void start();
 
