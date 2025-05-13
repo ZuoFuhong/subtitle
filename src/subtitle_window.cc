@@ -26,20 +26,8 @@
 #include "utils.h"
 #include "../third_party/json.hpp"
 
-SubtitleWindow::SubtitleWindow() = default;
-
-SubtitleWindow::~SubtitleWindow() {
-    SDL_Quit();
-}
-
-SubtitleWindow* SubtitleWindow::new_subtitle_window(LRUQueue* m_subtitle_queue) {
-    if (SDL_Init(SDL_INIT_EVENTS | SDL_INIT_AUDIO) < 0) {
-        std::cerr << "SDL could not initialize! Get_Error: " << SDL_GetError() << std::endl;
-        exit(-1);
-    }
-    auto window = new SubtitleWindow();
-    window->m_subtitle_queue = m_subtitle_queue;
-    return window;
+SubtitleWindow::SubtitleWindow(LRUQueue* subtitle_queue) {
+    m_subtitle_queue = subtitle_queue;
 }
 
 std::string translate_sentence(std::string_view sentence) {

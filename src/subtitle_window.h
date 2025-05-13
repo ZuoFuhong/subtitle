@@ -24,11 +24,9 @@
 
 class SubtitleWindow {
 public:
-    SubtitleWindow();
+    explicit SubtitleWindow(LRUQueue* subtitle_queue);
 
-    ~SubtitleWindow();
-
-    static SubtitleWindow* new_subtitle_window(LRUQueue *m_queue);
+    ~SubtitleWindow() = default;
 
     void run();
 
