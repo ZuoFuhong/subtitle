@@ -1,15 +1,15 @@
-## 实时字幕
+## Real-time Subtitles
 
-开源轻量的 macOS 实时字幕应用程序，在收听播客或观看视频时提供高质量的双语流式字幕。使用 Silero-Vad + Whisper 实现自动语音识别（ASR），翻译字幕使用 DeepSeek-V3 模型 API。
+An open-source, lightweight macOS real-time subtitle application that provides high-quality bilingual streaming subtitles when listening to podcasts or watching videos. Utilizes Silero-Vad + Whisper for automatic speech recognition (ASR), and DeepSeek-V3 model API for subtitle translation.
 
 ![subtitle_preview](./docs/subtitle_youtube.png)
 
-编译项目：
+Build the project:
 
 ```shell
 git clone -b master git@github.com:ZuoFuhong/subtitle.git
 
-# 关闭 Nano 内存分配器，仅 macOS 需要
+# Disable Nano memory allocator, required for macOS only
 export MallocNanoZone=0
 
 mkdir -p build
@@ -18,37 +18,37 @@ cmake ..
 make
 ```
 
-全屏展示窗口效果最佳：
+Best experience in fullscreen mode:
 
 ```shell
-# DeepSeek API_KEY（可选）
+# DeepSeek API_KEY (optional)
 export DEEPSEEK_API_KEY=sk-xxxxx
 
 cd build
 
-# 离线模式
+# Offline mode
 ./main -m offline
 
-# 服务端 ASR 模式
+# Server ASR mode
 ./main -m server -s 9.135.97.184 8000
 ```
 
-### 2、语音转文本
+### 2. Speech-to-Text
 
-[Whisper](https://github.com/openai/whisper) 提供了多种大小的模型供选择, 包括 small、medium 和 large 等, 不同大小的模型在精度、速度和计算资源占用方面有所差异.
+[Whisper](https://github.com/openai/whisper) offers various model sizes, including small, medium, and large. Different model sizes vary in accuracy, speed, and computational resource requirements.
 
 ```shell
-# 模型下载
-# small.en 仅支持英文, 速度较快, 适合实时语音识别
+# Model download
+# small.en supports English only, fast speed, suitable for real-time speech recognition
 curl -L --output ggml-small.en.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.en.bin
 
-# medium.en 仅支持英文, 速度中等, 识别精度极佳，推荐转换字幕
+# medium.en supports English only, moderate speed, excellent accuracy, recommended for subtitle conversion
 curl -L --output ggml-medium.en.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.en.bin
 ```
 
-注意: Whisper 模型在大段静音、背景音乐或显著噪音的英文音频下存在严重的幻觉问题.
+Note: Whisper models may hallucinate severely on long silences, background music, or noisy English audio.
 
-下面是使用 [whisper.cpp](https://github.com/ggerganov/whisper.cpp) 离线跑模型实现语音识别 ASR 服务
+Below is an example of running the ASR service offline using [whisper.cpp](https://github.com/ggerganov/whisper.cpp):
 
 ```text
 whisper_init_with_params_no_state: use gpu    = 1
@@ -69,14 +69,14 @@ ggml_metal_init: GPU family: MTLGPUFamilyMetal3  (5001)
 And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country.
 ```
 
-### 3、语音活动检测
+### 3. Voice Activity Detection
 
-音频活动检测（Voice Activity Detection，VAD）通过分析音频信号的特征来判断是否存在语音活动, 能够有效的识别和分离语音信号和非语音信号.
-在这里通过 VAD 将语音部分切断提供给 whisper 做转写, 可以大幅度降低了 whisper 的幻觉, 从而提高语音处理系统的效率和准确性.
+Voice Activity Detection (VAD) determines the presence of speech in audio signals by analyzing their features. It effectively distinguishes and separates speech from non-speech signals.
+Here, VAD is used to segment speech portions for Whisper transcription, which greatly reduces hallucinations and improves the efficiency and accuracy of the speech processing system.
 
 ![doc](docs/jfk_waveform.png)
 
-下面是商用模型离线跑出的结果:
+Below is the result from a commercial model running offline:
 
 ```json
 {
@@ -89,7 +89,7 @@ And so my fellow Americans, ask not what your country can do for you, ask what y
 }
 ```
 
-使用 ffmpeg 切割音频片段播放验证:
+Use ffmpeg to split audio segments for playback verification:
 
 ```shell
 ffmpeg -i jfk.wav -ss 00:00:00.230 -to 00:00:02.210 -acodec copy output1.wav
@@ -98,7 +98,7 @@ ffmpeg -i jfk.wav -ss 00:00:05.290 -to 00:00:07.310 -acodec copy output3.wav
 ffmpeg -i jfk.wav -ss 00:00:08.150 -to 00:00:10.450 -acodec copy output4.wav
 ```
 
-下面是 Silero-Vad + Whisper 流式识别的片段：
+Below are segments recognized in streaming mode by Silero-Vad + Whisper:
 
 ```shell
 {"end":37376,"se_id":1,"start":5120,"text":"And so, my fellow Americans."}
