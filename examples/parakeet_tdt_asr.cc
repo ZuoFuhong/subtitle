@@ -119,6 +119,20 @@ std::pair<Ort::Value, Ort::Value> create_state() {
     return {std::move(state_1), std::move(state_2)};
 }
 
+std::pair<Ort::Value, Ort::Value> clone_state(std::pair<Ort::Value, Ort::Value>& state) {
+    Ort::MemoryInfo memory_info = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeCPU);
+    std::vector<int64_t> state_shape = {2, 1, 640};
+    auto state_1_copy = new float[1280];
+    auto state_2_copy = new float[1280];
+    std::memcpy(state_1_copy, state.first.GetTensorMutableData<float>(), 5120);
+    std::memcpy(state_2_copy, state.second.GetTensorMutableData<float>(), 5120);
+    Ort::Value state_1 = Ort::Value::CreateTensor<float>(
+        memory_info, state_1_copy, 1280, state_shape.data(), state_shape.size()); 
+    Ort::Value state_2 = Ort::Value::CreateTensor<float>(
+        memory_info, state_2_copy, 1280, state_shape.data(), state_shape.size()); 
+    return {std::move(state_1), std::move(state_2)};
+}
+
 int argmax(const std::vector<float>& v) {
     return static_cast<int>(std::distance(v.begin(), std::max_element(v.begin(), v.end())));
 }
@@ -262,11 +276,11 @@ int main(int argc, char *argv[]) {
         int emitted_tokens = 0;
         while (t < encodings_len) {
             std::vector<float> encoding_t(1024);
-            for (int i = 0; i < 1024; ++i) {
+            for (int i = 0; i < 1024; i++) {
                 encoding_t[i] = encoder_out[batch * 1024 * encodings_len + i * encodings_len + t];
             }
             std::tuple<std::vector<float>, int, std::pair<Ort::Value, Ort::Value>> decode_outputs = decode(decoder_joint, 
-                tokens, vocab_size, blank_idx, std::move(prev_state), encoding_t);
+                tokens, vocab_size, blank_idx, clone_state(prev_state), encoding_t);
             auto probs = std::get<0>(decode_outputs);
             auto step = std::get<1>(decode_outputs);
 
@@ -276,8 +290,6 @@ int main(int argc, char *argv[]) {
                 tokens.push_back(token);
                 timestamps.push_back(t);
                 emitted_tokens += 1;
-            } else {
-                prev_state = create_state();
             }
             if (step >= 0) {
                 t += step;
