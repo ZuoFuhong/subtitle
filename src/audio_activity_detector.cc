@@ -1,5 +1,6 @@
 #include "audio_activity_detector.h"
 #include <array>
+#include <memory>
 
 AudioActivityDetector::AudioActivityDetector(std::string_view model_path) {
     _state.resize(state_size);
@@ -10,12 +11,10 @@ AudioActivityDetector::AudioActivityDetector(std::string_view model_path) {
 }
 
 void AudioActivityDetector::init_onnx_model(std::string_view model_path) {
-    Ort::Env env;
-    Ort::SessionOptions session_options;
     session_options.SetIntraOpNumThreads(1);
     session_options.SetInterOpNumThreads(1);
     session_options.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
-    session = new Ort::Session(env, model_path.data(), session_options);
+    session = std::make_shared<Ort::Session>(env, model_path.data(), session_options);
 }
 
 float AudioActivityDetector::predict(const float* data_chunk, unsigned int data_chunk_nlen) {

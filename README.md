@@ -27,10 +27,10 @@ export DEEPSEEK_API_KEY=sk-xxxxx
 cd build
 
 # Offline mode
-./main -m offline
+./main -mode offline
 
 # Server ASR mode
-./main -m server -s 9.135.97.184 8000
+./main -mode server -s 9.135.97.184 8000
 ```
 
 ### 2. Speech-to-Text

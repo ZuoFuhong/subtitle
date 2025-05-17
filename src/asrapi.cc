@@ -18,12 +18,16 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+#include <format>
 #include <string>
 #include <vector>
 #include <cstring>
+#include <spdlog/spdlog.h>
 #include <onnxruntime_cxx_api.h>
+#include "constants.h"
 #include "asrapi.h"
 #include "audio_activity_detector.h"
+#include "parakeet_speech_recognizer.h"
 #include "whisper_speech_recognizer.h"
 #include "../third_party/json.hpp"
 
@@ -35,9 +39,13 @@ struct Speech {
 
 class ASRSession {
 public:
-    ASRSession() {
-        vad_detector = new AudioActivityDetector("../resources/model/silero_vad.onnx");
-        speech_recognizer = new WhisperSpeechRecognizer("../resources/model/ggml-small.en.bin");
+    ASRSession(std::string_view model_path, std::string_view model_name) {
+        vad_detector = new AudioActivityDetector(std::format("{}/silero_vad.onnx", model_path));
+        if (model_name == PARAKEET_TDT_0_6B_V2) {
+            speech_recognizer = new ParakeetSpeechRecognizer(std::format("{}/{}", model_path, model_name));
+        } else {
+            speech_recognizer = new WhisperSpeechRecognizer(std::format("{}/{}", model_path, model_name));
+        }
     }
 
     void detect_vad(const float* data, unsigned int nlen) {
@@ -144,15 +152,15 @@ private:
 
     int min_silence_samples = 16 * 100; // Minimum silence duration: 100 ms
 
-    int min_speech_samples = 16 * 2000; // Maximum speech segment duration is 2 seconds
+    int min_speech_samples = 16 * 1000; // Maximum speech segment duration is 1 seconds
 
     int current_sample = 0;
 
     int temp_end = 0;
 };
 
-ASRCode ASR_create_session(HANDLE& session) {
-    auto m_session = new ASRSession();
+ASRCode ASR_create_session(HANDLE& session, std::string_view model_path, std::string_view model_name) {
+    auto m_session = new ASRSession(model_path, model_name);
     session = static_cast<void*>(m_session);
     return ERROR_OK;
 }

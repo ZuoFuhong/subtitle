@@ -40,6 +40,7 @@ add_library(common_lib
         src/offline_convert_timer.cc
         src/audio_activity_detector.cc
         src/whisper_speech_recognizer.cc
+        src/parakeet_speech_recognizer.cc
         src/asrapi.cc)
 
 foreach(_target main)

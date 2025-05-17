@@ -34,7 +34,7 @@ void LRUQueue::push(Packet* packet) {
         auto value = m_queue.front();
         delete value;
         m_queue.pop();
-        spdlog::warn("LRUQueue {} overflow drop packet", m_name);
+        spdlog::debug("LRUQueue {} overflow drop packet", m_name);
     }
     m_queue.push(packet);
 }

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <onnxruntime_cxx_api.h>
 
 class AudioActivityDetector {
@@ -13,9 +14,11 @@ public:
     float predict(const float* data_chunk, unsigned int nlen);
 
 private:
+    Ort::Env env;
+    Ort::SessionOptions session_options;
     Ort::MemoryInfo memory_info = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeCPU);
 
-    Ort::Session* session = nullptr;
+    std::shared_ptr<Ort::Session> session;
 
     std::vector<int64_t> input_node_dims = {1, 512 + 64};
 

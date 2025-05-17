@@ -21,10 +21,11 @@
 #pragma once
 
 #include "lru_queue.h"
+#include "asrapi.h"
 
 class OfflineConvertTimer {
 public:
-    OfflineConvertTimer(LRUQueue* audio_queue, LRUQueue* subtitle_queue);
+    OfflineConvertTimer(LRUQueue* audio_queue, LRUQueue* subtitle_queue, std::string_view model_path, std::string_view model_name);
 
     ~OfflineConvertTimer() = default;
 
@@ -34,5 +35,6 @@ private:
     LRUQueue* m_audio_queue{};
 
     LRUQueue* m_subtitle_queue{};
-};
 
+    HANDLE m_session{};
+};
