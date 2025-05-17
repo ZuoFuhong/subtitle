@@ -18,14 +18,13 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+#include <string>
 #include <vector>
 #include <cstring>
-#include <thread>
 #include <onnxruntime_cxx_api.h>
-#include <whisper.h>
 #include "asrapi.h"
-#include "utils.h"
 #include "audio_activity_detector.h"
+#include "whisper_speech_recognizer.h"
 #include "../third_party/json.hpp"
 
 struct Speech {
@@ -34,25 +33,11 @@ struct Speech {
     std::string text;
 };
 
-static void cb_log_disable(enum ggml_log_level , const char * , void * ) { }
-
 class ASRSession {
 public:
     ASRSession() {
         vad_detector = new AudioActivityDetector("../resources/model/silero_vad.onnx");
-        whisper_ctx = new_whisper_ctx("../resources/model/ggml-small.en.bin");
-    }
-
-    ~ASRSession() {
-        whisper_free(whisper_ctx);
-    }
-
-    static whisper_context* new_whisper_ctx(std::string_view model_path) {
-        whisper_log_set(cb_log_disable, nullptr);
-        whisper_context_params cparams = whisper_context_default_params();
-        cparams.use_gpu    = true;
-        cparams.flash_attn = false;
-        return whisper_init_from_file_with_params(model_path.data(), cparams);
+        speech_recognizer = new WhisperSpeechRecognizer("../resources/model/ggml-small.en.bin");
     }
 
     void detect_vad(const float* data, unsigned int nlen) {
@@ -90,20 +75,15 @@ public:
         }
     }
 
-    static bool sentence_has_finished(std::string_view text) {
-        if (!text.empty() && !std::ispunct(text.back())) { // 非标点符号
-            return false;
-        }
-        std::array<std::string_view, 4> suffixes = {"--", "--.", "...", ","}; // 半句话后缀
-        return !std::any_of(suffixes.begin(), suffixes.end(), [text](std::string_view suffix) {
-           return utils::ends_with(text, suffix);
-        });
+    std::pair<std::string, bool> recognize_text() {
+        return speech_recognizer->recognize_text(samples_buffer.data(), samples_buffer.size());
     }
 
     [[nodiscard]] bool get_active_state() {
         if (last_trigger_state && !triggered) {
-            recognize_text();
-            if (sentence_has_finished(current_speech.text)) { // 语义断句
+            auto result = recognize_text();
+            if (result.second) {
+                current_speech.text = result.first;
                 has_not_finished = false;
             } else {
                 last_trigger_state = triggered;
@@ -140,39 +120,10 @@ public:
         return speech.dump();
     }
 
-    void recognize_text() {
-        int n_sample = static_cast<int>(samples_buffer.size());
-        recognize_text_with_whisper(samples_buffer, n_sample);
-    }
-
-    void recognize_text_with_whisper(std::vector<float> pcmf32, int n_samples) {
-        int32_t n_threads = std::min(4, (int32_t) std::thread::hardware_concurrency());
-        whisper_full_params wparams = whisper_full_default_params(WHISPER_SAMPLING_GREEDY);
-        wparams.print_progress   = false;
-        wparams.print_special    = false;
-        wparams.print_timestamps = false;
-        wparams.print_realtime   = false;
-        wparams.translate        = false;
-        wparams.single_segment   = true;
-        wparams.max_tokens       = 0;
-        wparams.language         = "en";
-        wparams.n_threads        = n_threads;
-        // Run the inference
-        if (whisper_full(whisper_ctx, wparams, pcmf32.data(), n_samples) != 0) {
-            exit(EXIT_FAILURE);
-        }
-        const int n_segments = whisper_full_n_segments(whisper_ctx);
-        if (n_segments > 0) {
-            auto text = whisper_full_get_segment_text(whisper_ctx, 0);
-            current_speech.text = utils::trim(text);
-        } else {
-            current_speech.text = "";
-        }
-    }
 private:
-    std::vector<float> samples_buffer;
+    SpeechRecognizer* speech_recognizer;
 
-    whisper_context* whisper_ctx;
+    std::vector<float> samples_buffer;
 
     Speech current_speech;
 

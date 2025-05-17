@@ -39,6 +39,7 @@ add_library(common_lib
         src/convert_timer.cc
         src/offline_convert_timer.cc
         src/audio_activity_detector.cc
+        src/whisper_speech_recognizer.cc
         src/asrapi.cc)
 
 foreach(_target main)
