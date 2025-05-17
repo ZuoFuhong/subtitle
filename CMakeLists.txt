@@ -38,6 +38,7 @@ add_library(common_lib
         src/subtitle_window.cc
         src/convert_timer.cc
         src/offline_convert_timer.cc
+        src/audio_activity_detector.cc
         src/asrapi.cc)
 
 foreach(_target main)

@@ -20,17 +20,17 @@
 
 #include <vector>
 #include <cstring>
-#include <memory>
 #include <thread>
 #include <onnxruntime_cxx_api.h>
 #include <whisper.h>
 #include "asrapi.h"
 #include "utils.h"
+#include "audio_activity_detector.h"
 #include "../third_party/json.hpp"
 
 struct Speech {
-    int start;
-    int end;
+    int start{};
+    int end{};
     std::string text;
 };
 
@@ -38,62 +38,28 @@ static void cb_log_disable(enum ggml_log_level , const char * , void * ) { }
 
 class ASRSession {
 public:
-    explicit ASRSession(int sample_rate = 16000, float threshold = 0.4,
-                        int window_size_samples = 512, int min_silence_duration_ms = 96, int min_speech_duration_ms = 2000) {
-        init_whisper_model("../resources/model/ggml-small.en.bin");
-        init_onnx_model("../resources/model/silero_vad.onnx");
-        m_window_size_samples = window_size_samples;
-        m_threshold = threshold;
-        sr_per_ms = sample_rate / 1000;
-        min_silence_samples = sr_per_ms * min_silence_duration_ms;
-        min_speech_samples = sr_per_ms * min_speech_duration_ms;
-
-        input.resize(m_window_size_samples);
-        input_node_dims[0] = 1;
-        input_node_dims[1] = m_window_size_samples;
-
-        _state.resize(size_state);
-        sr.resize(1);
-        sr[0] = sample_rate;
+    ASRSession() {
+        vad_detector = new AudioActivityDetector("../resources/model/silero_vad.onnx");
+        whisper_ctx = new_whisper_ctx("../resources/model/ggml-small.en.bin");
     }
 
     ~ASRSession() {
-        samples_buffer.clear();
         whisper_free(whisper_ctx);
     }
 
-    void predict(const float* data, unsigned int nlen) {
-        // Infer
-        // Create ort tensors
-        std::copy(data, data + nlen, input.begin());
-        Ort::Value input_ort = Ort::Value::CreateTensor<float>(
-                memory_info, input.data(), input.size(), input_node_dims, 2);
-        Ort::Value state_ort = Ort::Value::CreateTensor<float>(
-                memory_info, _state.data(), _state.size(), state_node_dims, 3);
-        Ort::Value sr_ort = Ort::Value::CreateTensor<int64_t>(
-                memory_info, sr.data(), sr.size(), sr_node_dims, 1);
+    static whisper_context* new_whisper_ctx(std::string_view model_path) {
+        whisper_log_set(cb_log_disable, nullptr);
+        whisper_context_params cparams = whisper_context_default_params();
+        cparams.use_gpu    = true;
+        cparams.flash_attn = false;
+        return whisper_init_from_file_with_params(model_path.data(), cparams);
+    }
 
-        // Clear and add inputs
-        ort_inputs.clear();
-        ort_inputs.emplace_back(std::move(input_ort));
-        ort_inputs.emplace_back(std::move(state_ort));
-        ort_inputs.emplace_back(std::move(sr_ort));
-
-        // Infer
-        ort_outputs = session->Run(Ort::RunOptions{nullptr}, input_node_names.data(),
-                                   ort_inputs.data(), ort_inputs.size(),
-                                   output_node_names.data(), output_node_names.size());
-
-        // Output probability & update h,c recursively
-        float speech_prob = ort_outputs[0].GetTensorMutableData<float>()[0];
-        auto stateN = ort_outputs[1].GetTensorMutableData<float>();
-        std::memcpy(_state.data(), stateN, size_state * sizeof(float));
-
-        // Push forward sample index
-        current_sample += m_window_size_samples;
-
+    void detect_vad(const float* data, unsigned int nlen) {
+        float speech_prob = vad_detector->predict(data, nlen);
+        current_sample += window_size_samples;
         // 语音活动
-        if (speech_prob >= m_threshold) {
+        if (speech_prob >= threshold) {
             if (temp_end != 0) { // 容忍一些静默片段
                 temp_end = 0;
             }
@@ -101,13 +67,13 @@ public:
                 triggered = true;
                 if (!has_not_finished) {
                     current_speech = Speech{};
-                    current_speech.start = current_sample - m_window_size_samples;
+                    current_speech.start = current_sample - window_size_samples;
                 }
             }
             return;
         }
         // 语音静默
-        if (speech_prob < std::max(m_threshold - 0.15, 0.1) && triggered) {
+        if (speech_prob < std::max(threshold - 0.15, 0.1) && triggered) {
             if (current_sample - current_speech.start < min_speech_samples) {
                 return; // 发言片段太短
             }
@@ -203,71 +169,35 @@ public:
             current_speech.text = "";
         }
     }
-
 private:
-    Ort::Env env;
-    Ort::SessionOptions session_options;
-    std::shared_ptr <Ort::Session> session = nullptr;
-    Ort::MemoryInfo memory_info = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeCPU);
-
-    // Onnx model
-    // Inputs
-    std::vector<Ort::Value> ort_inputs;
-
-    std::vector<const char *> input_node_names = {"input", "state", "sr"};
-    std::vector<float> input;
-    unsigned int size_state = 2 * 1 * 128;
-    std::vector<float> _state;
-    std::vector<int64_t> sr;
-
-    int64_t input_node_dims[2] = {};
-    const int64_t state_node_dims[3] = {2, 1, 128};
-    const int64_t sr_node_dims[1] = {1};
-
-    // Outputs
-    std::vector<Ort::Value> ort_outputs;
-    std::vector<const char *> output_node_names = {"output", "stateN"};
-
-private:
-    int m_window_size_samples = 0;  // Assign when init, support 256 512 768 for 8k; 512 1024 1536 for 16k.
-    int sr_per_ms;   // Assign when init, support 8 or 16
-    float m_threshold;
-    int min_silence_samples;
-    int min_speech_samples;
-
-    bool triggered = false;
-    bool last_trigger_state = false;
-    bool has_not_finished = false;
-
-    int sequence = 0;
-    int temp_end = 0;
-    int current_sample = 0;
     std::vector<float> samples_buffer;
 
-    Speech current_speech{};
+    whisper_context* whisper_ctx;
+
+    Speech current_speech;
+
+    int sequence = 0;
 
 private:
-    whisper_context* whisper_ctx = nullptr;
+    AudioActivityDetector* vad_detector;
 
-private:
-    void init_onnx_model(const std::string& model_path) {
-        init_engine_threads();
-        session = std::make_shared<Ort::Session>(env, model_path.c_str(), session_options);
-    }
+    int window_size_samples = 512;  // Assign when init, support 256 512 768 for 8k; 512 1024 1536 for 16k.
 
-    void init_engine_threads() {
-        session_options.SetIntraOpNumThreads(1);
-        session_options.SetInterOpNumThreads(1);
-        session_options.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
-    }
+    float threshold = 0.5;
 
-    void init_whisper_model(const std::string& model_path) {
-        whisper_log_set(cb_log_disable, nullptr);
-        whisper_context_params cparams = whisper_context_default_params();
-        cparams.use_gpu    = true;
-        cparams.flash_attn = false;
-        whisper_ctx = whisper_init_from_file_with_params(model_path.c_str(), cparams);
-    }
+    bool last_trigger_state = false;
+
+    bool has_not_finished = false;
+
+    bool triggered = false;
+
+    int min_silence_samples = 16 * 100; // Minimum silence duration: 100 ms
+
+    int min_speech_samples = 16 * 2000; // Maximum speech segment duration is 2 seconds
+
+    int current_sample = 0;
+
+    int temp_end = 0;
 };
 
 ASRCode ASR_create_session(HANDLE& session) {
@@ -298,7 +228,7 @@ ASRCode ASR_push_buffer(HANDLE session, const float* pdata, unsigned int nlen) {
     }
     auto m_session = static_cast<ASRSession*>(session);
     m_session->push_buffer(pdata, nlen);
-    m_session->predict(pdata, nlen);
+    m_session->detect_vad(pdata, nlen);
     return ERROR_OK;
 }
 
