@@ -118,12 +118,14 @@ int main(int argc, char *argv[]) {
     std::string mode = "offline";
     std::string model_path = "./model";
     std::string model_name = GGMl_SMALL_EN;
+    std::string llm_model_name = "deepseek-chat";
     bool show_help = false;
     auto cli = (
         clipp::option("-mode").doc("ASR provider mode") & clipp::value("mode", mode),
         clipp::option("-s").doc("ASR server address") & clipp::value("address", address),
         clipp::option("-f").doc("ASR model path") & clipp::value("model_path", model_path),
         clipp::option("-m").doc("ASR model name") & clipp::value("model_name", model_name),
+        clipp::option("-llm").doc("LLM model name") & clipp::value("llm_model_name", llm_model_name),
         clipp::option("-h").set(show_help).doc("Show help")
     );
     if (!clipp::parse(argc, argv, cli) || show_help) {
@@ -137,7 +139,7 @@ int main(int argc, char *argv[]) {
 
     auto audio_queue = new LRUQueue("audio", 200);
     auto subtitle_queue = new LRUQueue("subtitle", 10);
-    auto window = new SubtitleWindow(subtitle_queue);
+    auto window = new SubtitleWindow(subtitle_queue, llm_model_name);
 
     auto audio_recorder = new AudioRecorder(audio_queue, audio_device_name);
     audio_recorder->turn_on();

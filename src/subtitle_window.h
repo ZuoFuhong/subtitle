@@ -24,7 +24,7 @@
 
 class SubtitleWindow {
 public:
-    explicit SubtitleWindow(LRUQueue* subtitle_queue);
+    explicit SubtitleWindow(LRUQueue* subtitle_queue, std::string_view trans_model);
 
     ~SubtitleWindow() = default;
 
@@ -32,4 +32,6 @@ public:
 
 private:
     LRUQueue* m_subtitle_queue{};
+
+    std::string m_trans_model{};
 };
