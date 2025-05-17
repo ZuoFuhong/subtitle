@@ -29,7 +29,7 @@ enum ASRCode {
 
 using HANDLE = void*;
 
-ASRCode ASR_create_session(HANDLE& session);
+ASRCode ASR_create_session(HANDLE& session, std::string_view model_path, std::string_view model_name);
 
 ASRCode ASR_begin_session(HANDLE session);
 

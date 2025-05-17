@@ -31,18 +31,21 @@ const int FRAME_DURATION = 32;
 // 语音活动窗口
 const int WINDOW_SIZE_SAMPLES = 512;
 
-OfflineConvertTimer::OfflineConvertTimer(LRUQueue* audio_queue, LRUQueue* subtitle_queue) {
+OfflineConvertTimer::OfflineConvertTimer(LRUQueue* audio_queue, LRUQueue* subtitle_queue, std::string_view model_path, std::string_view model_name) {
     m_audio_queue = audio_queue;
     m_subtitle_queue = subtitle_queue;
-}
 
-void OfflineConvertTimer::start() {
     HANDLE session;
-    auto code = ASR_create_session(session);
+    auto code = ASR_create_session(session, model_path, model_name);
     if (code != ASRCode::ERROR_OK) {
         std::cerr << "ASR_create_session err code=" << code << std::endl;
         exit(EXIT_FAILURE);
     }
+    m_session = session;
+}
+
+void OfflineConvertTimer::start() {
+    ASRCode code;
     int nstate = 0; // 0-没说话 1-在说话
     int nstatelast = 0;
     std::vector<float> samples_buffer;
@@ -62,12 +65,12 @@ void OfflineConvertTimer::start() {
             continue;
         }
         // 语音识别
-        code = ASR_push_buffer(session, samples_buffer.data(),  WINDOW_SIZE_SAMPLES);
+        code = ASR_push_buffer(m_session, samples_buffer.data(),  WINDOW_SIZE_SAMPLES);
         if (code != ASRCode::ERROR_OK) {
             std::cerr << "ASR_push_buffer err code=" << code << std::endl;
             exit(EXIT_FAILURE);
         }
-        code = ASR_get_vad_state(session, &nstate);
+        code = ASR_get_vad_state(m_session, &nstate);
         if (code != ASRCode::ERROR_OK) {
             std::cerr << "ASR_get_vad_state err code=" << code << std::endl;
             exit(EXIT_FAILURE);
@@ -76,20 +79,20 @@ void OfflineConvertTimer::start() {
         if (!nstatelast && nstate) {
             // 之前没说话, 现在说话
             // 新起一句
-            code = ASR_begin_session(session);
+            code = ASR_begin_session(m_session);
             if (code != ASRCode::ERROR_OK) {
                 std::cerr << "ASR_begin_session err code=" << code << std::endl;
                 exit(EXIT_FAILURE);
             }
         } else if (nstatelast && !nstate) {
             // 之前在说话, 现在没说话
-            code = ASR_end_session(session);
+            code = ASR_end_session(m_session);
             if (code != ERROR_OK) {
                 std::cerr << "ASR_end_session err code=" << code << std::endl;
                 exit(EXIT_FAILURE);
             }
             // 获取稳态句子
-            code = ASR_get_result(session, result);
+            code = ASR_get_result(m_session, result);
             if (code != ERROR_OK) {
                 std::cout << "ASR_get_result err code=" << code << std::endl;
                 exit(EXIT_FAILURE);

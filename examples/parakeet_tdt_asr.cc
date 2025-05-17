@@ -23,6 +23,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <iterator>
+#include <memory>
 #include <regex>
 #include <string>
 #include <utility>
@@ -34,6 +35,8 @@
 #include <onnxruntime_cxx_api.h>
 #include "../third_party/wav.h"
 #include "../third_party/clipp.h"
+
+Ort::MemoryInfo memory_info = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeCPU);
 
 std::map<int, std::string> load_vocab(std::string_view vocab_path) {
     std::map<int, std::string> vocab;
@@ -67,14 +70,13 @@ int find_blank_idx(std::string_view token, const std::map<int, std::string>& voc
 }
 
 // Preprocessing: Convert audio to features
-std::pair<Ort::Value, Ort::Value> preprocess(std::string_view model_path, std::vector<float> audio_wav) {
+std::pair<Ort::Value, Ort::Value> preprocess(std::shared_ptr<Ort::Session>& preprocessor, std::vector<float> audio_wav) {
     auto waveforms_size = static_cast<int64_t>(audio_wav.size());
     std::vector<float>   waveforms = std::move(audio_wav);
     std::vector<int64_t> waveforms_shape = {1, waveforms_size};
     std::vector<int64_t> waveforms_lens_shape = {1};
     std::vector<int64_t> waveforms_lens = {waveforms_size};
 
-    Ort::MemoryInfo memory_info = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeCPU);
     Ort::Value input_waveforms = Ort::Value::CreateTensor<float>(memory_info, 
         waveforms.data(), waveforms.size(), waveforms_shape.data(), waveforms_shape.size());
     Ort::Value input_waveforms_lens = Ort::Value::CreateTensor<int64_t>(memory_info, 
@@ -83,26 +85,18 @@ std::pair<Ort::Value, Ort::Value> preprocess(std::string_view model_path, std::v
     std::vector<const char*> input_names = {"waveforms", "waveforms_lens"};
     std::vector<const char*> output_names = {"features", "features_lens"};
     std::array<Ort::Value, 2> input_tensors = {std::move(input_waveforms), std::move(input_waveforms_lens)};
-
-    Ort::Env env;
-    Ort::SessionOptions session_options;
-    Ort::Session preprocessor(env, model_path.data(), session_options);
-    auto output_tensors = preprocessor.Run(Ort::RunOptions{nullptr}, 
+    auto output_tensors = preprocessor->Run(Ort::RunOptions{nullptr}, 
         input_names.data(), input_tensors.data(), input_names.size(), 
         output_names.data(), output_names.size());
     return {std::move(output_tensors[0]), std::move(output_tensors[1])};
 }
 
 // Encoder inference: convert features to high-dimensional representations
-std::pair<Ort::Value, Ort::Value> encode(std::string_view model_path, Ort::Value features, Ort::Value features_lens) {
+std::pair<Ort::Value, Ort::Value> encode(std::shared_ptr<Ort::Session>& encoder, Ort::Value features, Ort::Value features_lens) {
     std::vector<const char*> input_names = {"audio_signal", "length"};
     std::vector<const char*> output_names = {"outputs", "encoded_lengths"};
     std::array<Ort::Value, 2> input_tensors = {std::move(features), std::move(features_lens)};
-
-    Ort::Env env;
-    Ort::SessionOptions session_options;
-    Ort::Session encoder(env, model_path.data(), session_options);
-    auto output_tensors = encoder.Run(
+    auto output_tensors = encoder->Run(
         Ort::RunOptions{nullptr},
         input_names.data(), input_tensors.data(), input_names.size(),
         output_names.data(), output_names.size());
@@ -110,7 +104,6 @@ std::pair<Ort::Value, Ort::Value> encode(std::string_view model_path, Ort::Value
 }
 
 std::pair<Ort::Value, Ort::Value> create_state() {
-    Ort::MemoryInfo memory_info = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeCPU);
     std::vector<int64_t> state_shape = {2, 1, 640};
     Ort::Value state_1 = Ort::Value::CreateTensor<float>(
         memory_info, new float[1280]{0}, 1280, state_shape.data(), state_shape.size());
@@ -120,16 +113,11 @@ std::pair<Ort::Value, Ort::Value> create_state() {
 }
 
 std::pair<Ort::Value, Ort::Value> clone_state(std::pair<Ort::Value, Ort::Value>& state) {
-    Ort::MemoryInfo memory_info = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeCPU);
     std::vector<int64_t> state_shape = {2, 1, 640};
-    auto state_1_copy = new float[1280];
-    auto state_2_copy = new float[1280];
-    std::memcpy(state_1_copy, state.first.GetTensorMutableData<float>(), 5120);
-    std::memcpy(state_2_copy, state.second.GetTensorMutableData<float>(), 5120);
     Ort::Value state_1 = Ort::Value::CreateTensor<float>(
-        memory_info, state_1_copy, 1280, state_shape.data(), state_shape.size()); 
+        memory_info, state.first.GetTensorMutableData<float>(), 1280, state_shape.data(), state_shape.size()); 
     Ort::Value state_2 = Ort::Value::CreateTensor<float>(
-        memory_info, state_2_copy, 1280, state_shape.data(), state_shape.size()); 
+        memory_info, state.second.GetTensorMutableData<float>(), 1280, state_shape.data(), state_shape.size()); 
     return {std::move(state_1), std::move(state_2)};
 }
 
@@ -137,10 +125,9 @@ int argmax(const std::vector<float>& v) {
     return static_cast<int>(std::distance(v.begin(), std::max_element(v.begin(), v.end())));
 }
 
-std::tuple<std::vector<float>, int, std::pair<Ort::Value, Ort::Value>> decode(Ort::Session* decoder_joint, 
+std::tuple<std::vector<float>, int, std::pair<Ort::Value, Ort::Value>> decode(std::shared_ptr<Ort::Session>& decoder_joint, 
     std::vector<int> prev_tokens, int64_t vocab_size, int blank_idx, 
     std::pair<Ort::Value, Ort::Value> prev_state, std::vector<float> encoder_out) {
-    Ort::MemoryInfo memory_info = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeCPU);
     std::vector<int64_t> encoder_out_shape = {1, static_cast<int64_t>(encoder_out.size()), 1};
     Ort::Value input_encoder_outputs = Ort::Value::CreateTensor<float>(
         memory_info, encoder_out.data(), encoder_out.size(), encoder_out_shape.data(), encoder_out_shape.size());
@@ -251,20 +238,22 @@ int main(int argc, char *argv[]) {
     auto vocab_size = static_cast<int64_t>(vocab.size());
     int blank_idx = find_blank_idx("<blk>", vocab);
 
+    Ort::Env env;
+    Ort::SessionOptions session_options;
+
     // 3.Preprocess
-    std::pair<Ort::Value, Ort::Value> preprocess_outputs = preprocess(std::format("{}/nemo128.onnx", model_path), audio_wav);
+    auto preprocessor = std::make_shared<Ort::Session>(env, std::format("{}/nemo128.onnx", model_path).data(), session_options);
+    std::pair<Ort::Value, Ort::Value> preprocess_outputs = preprocess(preprocessor, audio_wav);
 
     // 4.Encoder
-    std::pair<Ort::Value, Ort::Value> encode_outputs = encode(std::format("{}/encoder-model.onnx", model_path),  
-    std::move(preprocess_outputs.first), std::move(preprocess_outputs.second));
+    auto encoder = std::make_shared<Ort::Session>(env, std::format("{}/encoder-model.onnx", model_path).data(), session_options);
+    std::pair<Ort::Value, Ort::Value> encode_outputs = encode(encoder,std::move(preprocess_outputs.first), std::move(preprocess_outputs.second));
     auto encoder_out = encode_outputs.first.GetTensorMutableData<float>();
     auto encoder_out_lens = encode_outputs.second.GetTensorMutableData<int64_t>();
     auto encoder_out_lens_shape = encode_outputs.second.GetTensorTypeAndShapeInfo().GetShape();
 
     // 5.Decoder
-    Ort::Env env;
-    Ort::SessionOptions session_options;
-    auto decoder_joint = new Ort::Session(env, std::format("{}/decoder_joint-model.onnx", model_path).c_str(), session_options);
+    auto decoder_joint = std::make_shared<Ort::Session>(env, std::format("{}/decoder_joint-model.onnx", model_path).data(), session_options);
     for (size_t batch = 0; batch < encoder_out_lens_shape.size(); ++batch) {
         std::pair<Ort::Value, Ort::Value> prev_state = create_state();
         std::vector<int> tokens;
@@ -300,7 +289,7 @@ int main(int argc, char *argv[]) {
             }
         }
         // Token to Text
-        std::cout << "text: " << tokens_to_text(tokens, vocab) << std::endl;
+        std::cout << "Text: " << tokens_to_text(tokens, vocab) << std::endl;
     }
     return 0;
 }
