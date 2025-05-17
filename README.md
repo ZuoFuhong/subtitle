@@ -23,6 +23,8 @@ Best experience in fullscreen mode:
 ```shell
 # DeepSeek API_KEY (optional)
 export DEEPSEEK_API_KEY=sk-xxxxx
+# or
+export OPENAI_API_KEY=sk-xxxxx
 
 cd build
 
