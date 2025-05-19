@@ -64,8 +64,8 @@ foreach(_target main)
        "-framework MetalKit")
 endforeach()
 
-foreach(_target parakeet_tdt_asr)
-    add_executable(${_target} examples/${_target}.cc)
+foreach(_target test)
+    add_executable(${_target} tests/${_target}.cc)
     target_link_libraries(${_target}
             common_lib ssl crypto opus whisper onnxruntime fmt curl
             "-framework Cocoa"
@@ -74,3 +74,6 @@ foreach(_target parakeet_tdt_asr)
             "-framework Metal"
             "-framework MetalKit")
 endforeach()
+
+add_executable(parakeet_tdt_asr examples/parakeet_tdt_asr.cc)
+target_link_libraries(parakeet_tdt_asr onnxruntime)
