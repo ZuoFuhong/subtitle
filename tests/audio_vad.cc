@@ -3,6 +3,8 @@
 #include "../src/asrapi.h"
 
 int main() {
+    std::string model_path = "../resources/model/";
+    std::string mode_name  = "parakeet-tdt-0.6b-v2";
     // 归一化预处理
     wav::WavReader wav_reader{};
     if (!wav_reader.open_file("../resources/audio/jfk.wav")) { // 16000, 1, s16
@@ -15,7 +17,7 @@ int main() {
 
     // 新建 Session
     HANDLE session;
-    auto code = ASR_create_session(session);
+    auto code = ASR_create_session(session, model_path, mode_name);
     if (code != ASRCode::ERROR_OK) {
         std::cerr << "ASR_create_session err code=" << code << std::endl;
         exit(EXIT_FAILURE);

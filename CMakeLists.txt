@@ -24,7 +24,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Werror -Wpedantic -fsanit
 # Ensure thread safety for SDL2
 add_definitions(-D_THREAD_SAFE)
 
-foreach (_target spdlog ggml whisper onnxruntime fmt opus sdl2 openssl tiff webp opencv png openjpeg xz jpeg-turbo openexr zstd tbb)
+foreach (_target spdlog ggml whisper onnxruntime fmt opus sdl2 openssl)
     include_directories(third_party/${_target}/include/)
     link_directories(third_party/${_target}/lib/)
 endforeach()
@@ -67,9 +67,7 @@ endforeach()
 foreach(_target parakeet_tdt_asr)
     add_executable(${_target} examples/${_target}.cc)
     target_link_libraries(${_target}
-            common_lib ssl crypto opus whisper onnxruntime fmt curl z tiff webp sharpyuv png jpeg openjp2 lzma
-            zstd tbb tegra_hal ittnotify OpenEXR opencv_core opencv_imgcodecs opencv_highgui opencv_imgproc
-            "-framework OpenCL"
+            common_lib ssl crypto opus whisper onnxruntime fmt curl
             "-framework Cocoa"
             "-framework Accelerate"
             "-framework Foundation"
