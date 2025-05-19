@@ -5,3 +5,6 @@ build
 .cache
 ggml-small.en.bin
 ggml-medium.en.bin
+decoder_joint-model.onnx
+encoder-model.onnx
+encoder-model.onnx.data
