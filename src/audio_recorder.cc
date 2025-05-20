@@ -19,42 +19,28 @@
 
 #include "audio_recorder.h"
 #include <spdlog/spdlog.h>
+#include <SDL3/SDL_audio.h>
 #include "utils.h"
 
-// 采样数 20ms 音频
-const int FRAME_SIZE = 320;
+// Number of samples for 20ms audio. 
+const int FRAME_SIZE = 320 * 2; // For s16 format, each sample is 2 bytes (16 bits).
 
-AudioRecorder::AudioRecorder(LRUQueue* audio_queue, std::string_view audio_device_name) {
+AudioRecorder::AudioRecorder(LRUQueue* audio_queue, SDL_AudioDeviceID devid) {
     SDL_AudioSpec desired_spec;
-    SDL_AudioSpec obtained_spec;
     SDL_zero(desired_spec);
-    SDL_zero(obtained_spec);
-    // 音频采样参数
     desired_spec.freq = 16000;
-    desired_spec.format = AUDIO_S16;
+    desired_spec.format = SDL_AUDIO_S16LE;
     desired_spec.channels = 1;
-    desired_spec.samples = FRAME_SIZE;
-    desired_spec.userdata = audio_queue;
-    desired_spec.callback =  [](void * userdata, uint8_t* stream, int nlen) {
-        auto audio_queue = (LRUQueue *)userdata;
-
-        auto pcm_data = new uint8_t[nlen];
-        memcpy(pcm_data, stream, nlen);
-
-        auto pkt = new Packet();
-        pkt->type = AUDIO;
-        pkt->timestamp = utils::current_timestamp();
-        pkt->body = pcm_data;
-        pkt->body_size = nlen;
-        audio_queue->push(pkt);
-    };
-    SDL_AudioDeviceID audio_device = SDL_OpenAudioDevice(audio_device_name.data(), SDL_TRUE, &desired_spec, &obtained_spec, 0);
-    if (audio_device == 0) {
-        spdlog::error("Failed to open audio device, error: {}", SDL_GetError());
+    SDL_AudioStream* audio_stream = SDL_OpenAudioDeviceStream(devid, &desired_spec, nullptr, audio_queue);
+    if (audio_stream == nullptr) {
+        spdlog::error("Failed to open audio stream, error: {}", SDL_GetError());
         exit(EXIT_FAILURE);
     }
-    m_audio_device = audio_device;
+    m_audio_stream = audio_stream;
     m_audio_queue = audio_queue;
+
+    std::chrono::milliseconds ms = std::chrono::milliseconds(20);
+    m_timer.start(ms, &AudioRecorder::on_timer_pull_audio, this);
 }
 
 void AudioRecorder::turn_on() {
@@ -62,14 +48,38 @@ void AudioRecorder::turn_on() {
         return;
     }
     started = true;
-    SDL_PauseAudioDevice(m_audio_device, 0);
+    SDL_ClearAudioStream(m_audio_stream);
+    SDL_ResumeAudioStreamDevice(m_audio_stream);
 }
 
 void AudioRecorder::turn_off() {
     started = false;
-    SDL_PauseAudioDevice(m_audio_device, 1);
+    SDL_PauseAudioStreamDevice(m_audio_stream);
 }
 
-AudioRecorder::~AudioRecorder() {
-    SDL_CloseAudioDevice(m_audio_device);
+void AudioRecorder::on_timer_pull_audio() {
+    while(true) {
+        if (!started) {
+            break;
+        }
+        int available_bytes = SDL_GetAudioStreamAvailable(m_audio_stream);
+        if (available_bytes < 0) {
+            spdlog::error("Failed to get audio stream available size, error: {}", SDL_GetError());
+            exit(EXIT_FAILURE);
+        }
+        if (available_bytes < FRAME_SIZE) {
+            break;
+        }
+        auto pcm_data = new uint8_t[FRAME_SIZE];
+        auto pkt = new Packet();
+        pkt->type = AUDIO;
+        pkt->timestamp = utils::current_timestamp();
+        pkt->body = pcm_data;
+        pkt->body_size = FRAME_SIZE;
+        if (SDL_GetAudioStreamData(m_audio_stream, pcm_data, FRAME_SIZE) < 0) {
+            spdlog::error("Failed to get audio stream data, error: {}", SDL_GetError());
+            exit(EXIT_FAILURE);
+        }
+        m_audio_queue->push(pkt);
+    }
 }

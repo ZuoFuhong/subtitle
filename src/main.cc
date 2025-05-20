@@ -23,6 +23,7 @@
 #include <spdlog/spdlog.h>
 #include <filesystem>
 #include <string_view>
+#include "SDL3/SDL_audio.h"
 #include "audio_recorder.h"
 #include "lru_queue.h"
 #include "convert_timer.h"
@@ -85,31 +86,32 @@ void prepare_model_file(std::string_view model_path, std::string_view model_name
     }
 }
 
-std::string prepare_audio_device() {
-    if (SDL_Init(SDL_INIT_EVENTS | SDL_INIT_AUDIO) < 0) {
+SDL_AudioDeviceID prepare_audio_device() {
+    if (!SDL_Init(SDL_INIT_EVENTS | SDL_INIT_AUDIO)) {
         std::cerr << "SDL could not initialize! Get_Error: " << SDL_GetError() << std::endl;
         exit(EXIT_FAILURE);
     }
-    int numDevices = SDL_GetNumAudioDevices(1); // Audio input devices
-    if (numDevices == 0) {
-        spdlog::error("No audio devices found.");
+    int num_devices = 0;
+    SDL_AudioDeviceID* audio_devices = SDL_GetAudioRecordingDevices(&num_devices);
+    if (audio_devices == nullptr) {
+        spdlog::error("Failed to get audio devices: {}", SDL_GetError());
         exit(EXIT_FAILURE);
     }
     std::cout << "Available audio devices:" << std::endl;
-    for (int i = 0; i < numDevices; ++i) {
-        const char* deviceName = SDL_GetAudioDeviceName(i, 1);
+    for (int i = 0; i < num_devices; ++i) {
+        const char* deviceName = SDL_GetAudioDeviceName(audio_devices[i]);
         std::cout << i << ": " << deviceName << std::endl;
     }
     int selected = -1;
     std::cout << "Please select an audio device by number: ";
     std::cin >> selected;
-    if (selected < 0 || selected >= numDevices) {
+    if (selected < 0 || selected >= num_devices) {
         spdlog::error("Invalid device number selected.");
         exit(EXIT_FAILURE);
     }
-    const char* device_name = SDL_GetAudioDeviceName(selected, 1);
+    const char* device_name = SDL_GetAudioDeviceName(audio_devices[selected]);
     std::cout << "You selected device: " << device_name << std::endl;
-    return device_name;
+    return audio_devices[selected];
 }
 
 int main(int argc, char *argv[]) {
@@ -119,6 +121,7 @@ int main(int argc, char *argv[]) {
     std::string model_path = "./model";
     std::string model_name = GGMl_SMALL_EN;
     std::string llm_model_name = "deepseek-chat";
+    bool show_window = false;
     bool show_help = false;
     auto cli = (
         clipp::option("-mode").doc("ASR provider mode") & clipp::value("mode", mode),
@@ -126,6 +129,7 @@ int main(int argc, char *argv[]) {
         clipp::option("-f").doc("ASR model path") & clipp::value("model_path", model_path),
         clipp::option("-m").doc("ASR model name") & clipp::value("model_name", model_name),
         clipp::option("-llm").doc("LLM model name") & clipp::value("llm_model_name", llm_model_name),
+        clipp::option("-show_window").set(show_window).doc("Show subtitle window"),
         clipp::option("-h").set(show_help).doc("Show help")
     );
     if (!clipp::parse(argc, argv, cli) || show_help) {
@@ -135,13 +139,13 @@ int main(int argc, char *argv[]) {
     }
     signal(SIGINT, handle_sigint);
     prepare_model_file(model_path, model_name);
-    std::string audio_device_name = prepare_audio_device();
+    SDL_AudioDeviceID selected_device = prepare_audio_device();
 
     auto audio_queue = new LRUQueue("audio", 200);
     auto subtitle_queue = new LRUQueue("subtitle", 10);
-    auto window = new SubtitleWindow(subtitle_queue, llm_model_name);
+    auto window = new SubtitleWindow(subtitle_queue, llm_model_name, show_window);
 
-    auto audio_recorder = new AudioRecorder(audio_queue, audio_device_name);
+    auto audio_recorder = new AudioRecorder(audio_queue, selected_device);
     audio_recorder->turn_on();
 
     if (mode == "server") {

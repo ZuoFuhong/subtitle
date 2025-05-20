@@ -21,17 +21,44 @@
 #pragma once
 
 #include "lru_queue.h"
+#include <SDL3/SDL.h>
+#include <SDL3_ttf/SDL_ttf.h>
+#include "timer.h"
 
 class SubtitleWindow {
 public:
-    explicit SubtitleWindow(LRUQueue* subtitle_queue, std::string_view trans_model);
+    explicit SubtitleWindow(LRUQueue* subtitle_queue, std::string_view trans_model, bool show_window = false);
 
     ~SubtitleWindow() = default;
 
     void run();
 
 private:
+    void create_window();
+
+    void on_timer_pull_text();
+
+    void draw_renderer_text(std::string_view sentence_zh);
+
+private:
     LRUQueue* m_subtitle_queue{};
 
     std::string m_trans_model{};
+
+    Timer m_timer{};
+
+private:
+    SDL_Window *m_window{};
+
+    SDL_Renderer *m_renderer{};
+
+    TTF_Font* m_font{};
+
+    TTF_TextEngine *m_text_engine{};
+
+    TTF_Text *m_text{};
+
+    std::string m_text_string{};
+
+    bool m_show_window{};
 };

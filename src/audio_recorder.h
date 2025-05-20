@@ -21,14 +21,14 @@
 #pragma once
 
 #include "lru_queue.h"
-#include <string_view>
-#include <SDL2/SDL.h>
+#include <SDL3/SDL.h>
+#include "timer.h"
 
 class AudioRecorder {
 public:
-    explicit AudioRecorder(LRUQueue* audio_queue, std::string_view audio_device_name);
+    explicit AudioRecorder(LRUQueue* audio_queue, SDL_AudioDeviceID devid);
 
-    ~AudioRecorder();
+    ~AudioRecorder() = default;
 
     void turn_on();
 
@@ -39,5 +39,9 @@ private:
 
     LRUQueue* m_audio_queue{};
 
-    SDL_AudioDeviceID m_audio_device{};
+    SDL_AudioStream* m_audio_stream{};
+
+    Timer m_timer{};
+private:
+    void on_timer_pull_audio();
 };
