@@ -21,10 +21,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Werror -Wpedantic -fsanitize=address")
 
-# Ensure thread safety for SDL3
-add_definitions(-D_THREAD_SAFE)
-
-foreach (_target spdlog ggml whisper onnxruntime fmt opus sdl3 openssl)
+foreach (_target spdlog ggml whisper onnxruntime fmt opus sdl3 sdl3_ttf openssl freetype bzip2 harfbuzz png zlib graphite2)
     include_directories(third_party/${_target}/include/)
     link_directories(third_party/${_target}/lib/)
 endforeach()
@@ -46,7 +43,7 @@ add_library(common_lib
 foreach(_target main)
    add_executable(${_target} src/${_target}.cc)
    target_link_libraries(${_target}
-       common_lib ssl crypto opus spdlog whisper onnxruntime fmt curl iconv SDL3
+       common_lib ssl crypto opus spdlog whisper onnxruntime fmt curl iconv SDL3 SDL3_ttf freetype bz2 harfbuzz png z graphite2
        "-framework AppKit"
        "-framework AudioToolbox"
        "-framework GameController"
@@ -68,10 +65,10 @@ foreach(_target main)
        "-framework MetalKit")
 endforeach()
 
-foreach(_target test)
+foreach(_target sdl3_text_engine)
     add_executable(${_target} tests/${_target}.cc)
     target_link_libraries(${_target}
-        common_lib ssl crypto opus whisper onnxruntime fmt curl iconv SDL3
+        common_lib ssl crypto opus spdlog whisper onnxruntime fmt curl iconv SDL3 SDL3_ttf freetype bz2 harfbuzz png z graphite2
         "-framework AppKit"
         "-framework AudioToolbox"
         "-framework GameController"
