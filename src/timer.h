@@ -20,28 +20,44 @@
 
 #pragma once
 
-#include "lru_queue.h"
-#include <SDL3/SDL.h>
-#include "timer.h"
+#include <atomic>
+#include <chrono>
+#include <functional>
+#include <thread>
+#include <condition_variable>
+#include <mutex>
 
-class AudioRecorder {
+class Timer {
 public:
-    explicit AudioRecorder(LRUQueue* audio_queue, SDL_AudioDeviceID devid);
+    Timer(): m_done(false) {
+    }
 
-    ~AudioRecorder() = default;
+    template<class Fn, class ...Args>
+    void start(std::chrono::milliseconds ms, Fn&& Fx, Args&&... Ax) {
+        auto lambd_expr = [=, this](Args ...ax) -> void {
+            while (true) {
+                std::unique_lock<std::mutex> lock(m_mutex);
+                std::chrono::system_clock::time_point now = std::chrono::system_clock::now();
+                if (m_cond.wait_until(lock, now + ms, [this]() {return this->m_done.load();})) {
+                    break;
+                }
+                std::invoke(Fx, ax...);
+            }
+        };
+        m_thread = std::thread(lambd_expr, Ax...);
+    }
 
-    void turn_on();
-
-    void turn_off();
+    void stop() {
+        m_done = true;
+        m_cond.notify_one();
+        if (m_thread.joinable()) {
+            m_thread.join();
+        }
+    }
 
 private:
-    bool started{};
-
-    LRUQueue* m_audio_queue{};
-
-    SDL_AudioStream* m_audio_stream{};
-
-    Timer m_timer{};
-private:
-    void on_timer_pull_audio();
+    std::atomic_bool m_done;
+    std::condition_variable m_cond;
+    std::mutex m_mutex;
+    std::thread m_thread;
 };

@@ -21,10 +21,10 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Werror -Wpedantic -fsanitize=address")
 
-# Ensure thread safety for SDL2
+# Ensure thread safety for SDL3
 add_definitions(-D_THREAD_SAFE)
 
-foreach (_target spdlog ggml whisper onnxruntime fmt opus sdl2 openssl)
+foreach (_target spdlog ggml whisper onnxruntime fmt opus sdl3 openssl)
     include_directories(third_party/${_target}/include/)
     link_directories(third_party/${_target}/lib/)
 endforeach()
@@ -46,7 +46,7 @@ add_library(common_lib
 foreach(_target main)
    add_executable(${_target} src/${_target}.cc)
    target_link_libraries(${_target}
-       common_lib ssl crypto opus spdlog whisper onnxruntime fmt curl iconv SDL2
+       common_lib ssl crypto opus spdlog whisper onnxruntime fmt curl iconv SDL3
        "-framework AppKit"
        "-framework AudioToolbox"
        "-framework GameController"
@@ -60,6 +60,10 @@ foreach(_target main)
        "-framework ForceFeedback"
        "-framework Accelerate"
        "-framework Foundation"
+       "-framework CoreMedia"
+       "-framework AVFoundation"
+       "-framework QuartzCore"
+       "-framework UniformTypeIdentifiers"
        "-framework Metal"
        "-framework MetalKit")
 endforeach()
@@ -67,12 +71,26 @@ endforeach()
 foreach(_target test)
     add_executable(${_target} tests/${_target}.cc)
     target_link_libraries(${_target}
-            common_lib ssl crypto opus whisper onnxruntime fmt curl
-            "-framework Cocoa"
-            "-framework Accelerate"
-            "-framework Foundation"
-            "-framework Metal"
-            "-framework MetalKit")
+        common_lib ssl crypto opus whisper onnxruntime fmt curl iconv SDL3
+        "-framework AppKit"
+        "-framework AudioToolbox"
+        "-framework GameController"
+        "-framework IOKit"
+        "-framework Carbon"
+        "-framework CoreAudio"
+        "-framework CoreVideo"
+        "-framework CoreHaptics"
+        "-framework CoreGraphics"
+        "-framework CoreFoundation"
+        "-framework ForceFeedback"
+        "-framework Accelerate"
+        "-framework Foundation"
+        "-framework CoreMedia"
+        "-framework AVFoundation"
+        "-framework QuartzCore"
+        "-framework UniformTypeIdentifiers"
+        "-framework Metal"
+        "-framework MetalKit")
 endforeach()
 
 add_executable(parakeet_tdt_asr examples/parakeet_tdt_asr.cc)

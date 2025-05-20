@@ -21,7 +21,7 @@
 #include <iostream>
 #include <thread>
 #include <fmt/format.h>
-#include <SDL2/SDL.h>
+#include <SDL3/SDL.h>
 #include "subtitle_window.h"
 #include "utils.h"
 #include "../third_party/json.hpp"
@@ -77,12 +77,9 @@ void SubtitleWindow::run() {
     SDL_Event event;
     while (!quit) {
         while (SDL_PollEvent(&event)) {
-            if (event.type == SDL_QUIT) {
+            if (event.type == SDL_EVENT_QUIT) {
                 quit = true;
                 continue;
-            }
-            if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_SPACE) {
-                std::cout << "space keydown event" << std::endl;
             }
         }
         if (m_subtitle_queue->size() > 0) {
