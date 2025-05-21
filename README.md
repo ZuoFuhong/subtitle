@@ -2,6 +2,10 @@
 
 An open-source, lightweight macOS real-time subtitle application that provides high-quality bilingual streaming subtitles when listening to podcasts or watching videos. Utilizes Silero-Vad + Whisper for automatic speech recognition (ASR), and DeepSeek-V3 model API for subtitle translation.
 
+[![YouTube Video](./docs/subtitle_window.png)](https://www.youtube.com/watch?v=32uLnLP_coU)
+
+Demo without window style:
+
 [![YouTube Video](./docs/subtitle_youtube.png)](https://www.youtube.com/watch?v=GUIAOTWzZTc)
 
 Build the project:
