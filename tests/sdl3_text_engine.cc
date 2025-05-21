@@ -6,11 +6,11 @@
 #include <SDL3/SDL.h>
 #include <SDL3_ttf/SDL_ttf.h>
 
-const int SCREEN_WIDTH = 800;
+const int SCREEN_WIDTH = 700;
 
-const int SCREEN_HEIGHT = 120;
+const int SCREEN_HEIGHT = 100;
 
-const int PADDING = 40;
+const int PADDING = 32;
 
 int main() {
     if (!SDL_Init(SDL_INIT_EVENTS | SDL_INIT_VIDEO)) {
@@ -21,7 +21,7 @@ int main() {
         std::cout << "TTF could not initialize! Get_Error: " << SDL_GetError() << std::endl;  
         exit(EXIT_FAILURE);
     }
-    TTF_Font* font = TTF_OpenFont("/System/Library/Fonts/Hiragino Sans GB.ttc", 38.0f);
+    TTF_Font* font = TTF_OpenFont("/System/Library/Fonts/Hiragino Sans GB.ttc", 48.0f);
     if (font == nullptr) {
         std::cout << "Couldn't open font: " << SDL_GetError() << std::endl;
         exit(EXIT_FAILURE);
@@ -44,9 +44,15 @@ int main() {
         std::cout << "TTF_CreateText failed: " << SDL_GetError() << std::endl;
         exit(EXIT_FAILURE);
     }
-    int w, h = 0;
-    SDL_GetWindowSizeInPixels(window, &w, &h);
-    TTF_SetTextWrapWidth(text, w - PADDING * 2);
+    int win_w, win_h = 0;
+    SDL_GetWindowSizeInPixels(window, &win_w, &win_h);
+    TTF_SetTextWrapWidth(text, win_w - PADDING);
+    TTF_SetFontWrapAlignment(font, TTF_HORIZONTAL_ALIGN_CENTER);
+
+    int text_w = 0, text_h = 0;
+    TTF_GetTextSize(text, &text_w, &text_h);
+    float text_x = static_cast<float>(win_w - text_w) / 2;
+    float text_y = static_cast<float>(win_h - text_h + 16) / 2;
 
     bool quit = false;
     SDL_Event event;
@@ -79,7 +85,7 @@ int main() {
         }
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         SDL_RenderClear(renderer);
-        TTF_DrawRendererText(text, PADDING, PADDING);
+        TTF_DrawRendererText(text, text_x, text_y);
         SDL_RenderPresent(renderer);
 
         // 控制 60 FPS
