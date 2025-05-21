@@ -29,11 +29,11 @@
 #include "utils.h"
 #include "../third_party/json.hpp"
 
-const int SCREEN_WIDTH = 800;
+const int SCREEN_WIDTH = 700;
 
 const int SCREEN_HEIGHT = 100;
 
-const int PADDING = 40;
+const int PADDING = 32;
 
 SubtitleWindow::SubtitleWindow(LRUQueue* subtitle_queue, std::string_view trans_model, bool show_window) {
     m_subtitle_queue = subtitle_queue;
@@ -53,12 +53,12 @@ void SubtitleWindow::create_window() {
         std::cout << "TTF could not initialize! Get_Error: " << SDL_GetError() << std::endl;  
         exit(EXIT_FAILURE);
     }
-    m_font = TTF_OpenFont("/System/Library/Fonts/Hiragino Sans GB.ttc", 38.0f);
+    m_font = TTF_OpenFont("/System/Library/Fonts/Hiragino Sans GB.ttc", 48.0f);
     if (m_font == nullptr) {
         std::cout << "Couldn't open font: " << SDL_GetError() << std::endl;
         exit(EXIT_FAILURE);
     }
-    if (!SDL_CreateWindowAndRenderer("Simple SDL3 window", SCREEN_WIDTH, SCREEN_HEIGHT,  SDL_WINDOW_METAL | SDL_WINDOW_ALWAYS_ON_TOP | SDL_WINDOW_HIGH_PIXEL_DENSITY | SDL_WINDOW_BORDERLESS, &m_window, &m_renderer)) {
+    if (!SDL_CreateWindowAndRenderer("Simple SDL3 window", SCREEN_WIDTH, SCREEN_HEIGHT,  SDL_WINDOW_METAL | SDL_WINDOW_ALWAYS_ON_TOP | SDL_WINDOW_HIGH_PIXEL_DENSITY | SDL_WINDOW_BORDERLESS | SDL_WINDOW_TRANSPARENT, &m_window, &m_renderer)) {
         std::cout << "SDL_CreateWindowAndRenderer failed: " << SDL_GetError() << std::endl;
         exit(EXIT_FAILURE);
     }
@@ -72,6 +72,7 @@ void SubtitleWindow::create_window() {
         std::cout << "TTF_CreateText failed: " << SDL_GetError() << std::endl;
         exit(EXIT_FAILURE);
     }
+    TTF_SetFontWrapAlignment(m_font, TTF_HORIZONTAL_ALIGN_CENTER);
 }
 
 std::string translate_sentence(std::string_view sentence, std::string_view model_name) {
@@ -139,9 +140,9 @@ void SubtitleWindow::draw_renderer_text(std::string_view sentence_zh) {
     int text_w = 0, text_h = 0;
     TTF_GetTextSize(m_text, &text_w, &text_h);
     float x = static_cast<float>(win_w - text_w) / 2;
-    float y = static_cast<float>(win_h - text_h) / 2;
+    float y = static_cast<float>(win_h - text_h + 16) / 2;
 
-    SDL_SetRenderDrawColor(m_renderer, 0, 0, 0, 255);
+    SDL_SetRenderDrawColor(m_renderer, 0, 0, 0, 180);
     SDL_RenderClear(m_renderer);
     TTF_DrawRendererText(m_text, x, y);
     SDL_RenderPresent(m_renderer);
