@@ -220,6 +220,16 @@ void prepare_model_file(std::string_view model_path) {
     }
 }
 
+bool has_cuda_provider() {
+    try {
+        std::vector<std::string> providers = Ort::GetAvailableProviders();
+        return std::find(providers.begin(), providers.end(), "CUDAExecutionProvider") != providers.end();
+    } catch (const Ort::Exception& e) {
+        std::cerr << "Error checking CURDA available providers: " << e.what() << std::endl;
+        return false;
+    }
+}
+
 /**
  * Main entry point for the Parakeet TDT ASR test application.
  *
@@ -274,6 +284,19 @@ int main(int argc, char *argv[]) {
 
     Ort::Env env;
     Ort::SessionOptions session_options;
+    if (has_cuda_provider()) {
+        OrtCUDAProviderOptions cuda_options;
+        cuda_options.device_id = 0; // Default to the first GPU
+        cuda_options.arena_extend_strategy = 0; // Default arena extend strategy
+        cuda_options.gpu_mem_limit = SIZE_MAX; // Use all available GPU memory
+        cuda_options.cudnn_conv_algo_search = OrtCudnnConvAlgoSearchExhaustive;
+        cuda_options.do_copy_in_default_stream = 1;
+
+        session_options.AppendExecutionProvider_CUDA(cuda_options);
+        std::cout << "CUDA execution provider added successfully." << std::endl;
+    } else {
+        std::cout << "CUDA not available, using CPU." << std::endl;
+    }
 
     // 3.Preprocess
     auto preprocessor = std::make_shared<Ort::Session>(env, std::format("{}/nemo128.onnx", model_path).data(), session_options);
