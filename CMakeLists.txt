@@ -89,6 +89,3 @@ foreach(_target sdl3_text_engine)
         "-framework Metal"
         "-framework MetalKit")
 endforeach()
-
-add_executable(parakeet_tdt_asr examples/parakeet_tdt_asr.cc)
-target_link_libraries(parakeet_tdt_asr onnxruntime)

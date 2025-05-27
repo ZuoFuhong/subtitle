@@ -31,7 +31,8 @@
 #include <tuple>
 #include <sstream>
 #include <fstream>
-#include <format>
+#include <filesystem>
+#include <fmt/format.h>
 #include <onnxruntime_cxx_api.h>
 #include "../third_party/wav.h"
 #include "../third_party/clipp.h"
@@ -186,6 +187,51 @@ std::string tokens_to_text(const std::vector<int>& tokens, const std::map<int, s
     return decode_space_pattern(joined);
 }
 
+bool curl_download(std::string_view target_url, std::string_view filepath, std::string_view limit_rate) {
+    auto dir_path = std::filesystem::path(filepath).parent_path();
+    if (!std::filesystem::exists(dir_path)) {
+        if (!std::filesystem::create_directories(dir_path)) {
+            std::cerr << "Failed to create directories: " << dir_path << std::endl;
+            return false;
+        }
+    }
+    std::string command = fmt::format("curl -L --limit-rate '{}' -C - -o '{}' '{}'", limit_rate, filepath, target_url);
+    int result = system(command.c_str());
+    if (result != 0) {
+        std::cerr << "Failed to execute command: " << command << std::endl;
+        return false;
+    }
+    return true;
+}
+
+void prepare_model_file(std::string_view model_path) {
+    std::vector<std::string> files = {"nemo128.onnx", "vocab.txt", "encoder-model.onnx", "decoder_joint-model.onnx", "encoder-model.onnx.data"};
+    for (const auto& filename : files) {
+        std::string file_path = fmt::format("{}/{}", model_path, filename);
+        if (!std::filesystem::exists(file_path)) {
+            std::string download_url = fmt::format("https://huggingface.co/istupakov/parakeet-tdt-0.6b-v2-onnx/resolve/main/{}", filename);
+            if (filename == "nemo128.onnx") {
+                download_url = "https://raw.githubusercontent.com/ZuoFuhong/subtitle/refs/heads/master/resources/model/parakeet-tdt-0.6b-v2/nemo128.onnx";
+            }
+            if (!curl_download(download_url, file_path, "10M")) {
+                std::cerr << fmt::format("Failed to download `{}` model.", file_path) << std::endl;
+                exit(EXIT_FAILURE);
+            }
+            std::cout << fmt::format("Successfully downloaded `{}`.", file_path) << std::endl;
+        }
+    }
+}
+
+bool has_cuda_provider() {
+    try {
+        std::vector<std::string> providers = Ort::GetAvailableProviders();
+        return std::find(providers.begin(), providers.end(), "CUDAExecutionProvider") != providers.end();
+    } catch (const Ort::Exception& e) {
+        std::cerr << "Error checking CURDA available providers: " << e.what() << std::endl;
+        return false;
+    }
+}
+
 /**
  * Main entry point for the Parakeet TDT ASR test application.
  *
@@ -210,8 +256,7 @@ std::string tokens_to_text(const std::vector<int>& tokens, const std::map<int, s
  *   -h                Show help message
  */
 int main(int argc, char *argv[]) {
-    // Please set your own model path. Download the model from: https://huggingface.co/istupakov/parakeet-tdt-0.6b-v2-onnx
-    std::string model_path = "../resources/model";
+    std::string model_path = "../resources/model/parakeet-tdt-0.6b-v2";
     std::string audio_file = "../resources/audio/jfk.wav";
     bool show_help = false;
     auto cli = (
@@ -224,6 +269,7 @@ int main(int argc, char *argv[]) {
         std::cout << clipp::usage_lines(cli) << std::endl;
         exit(EXIT_FAILURE);
     }
+    prepare_model_file(model_path);
     // 1. Load audio file (Requires 16000Hz, mono, s16)
     wav::WavReader wav_reader{};
     if (!wav_reader.open_file(audio_file)) {
@@ -234,26 +280,39 @@ int main(int argc, char *argv[]) {
         audio_wav[i] = static_cast<float>(*(wav_reader.data() + i));
     }
     // 2.Load Vocab
-    auto vocab = load_vocab(std::format("{}/vocab.txt", model_path));
+    auto vocab = load_vocab(fmt::format("{}/vocab.txt", model_path));
     auto vocab_size = static_cast<int64_t>(vocab.size());
     int blank_idx = find_blank_idx("<blk>", vocab);
 
     Ort::Env env;
     Ort::SessionOptions session_options;
+    if (has_cuda_provider()) {
+        OrtCUDAProviderOptions cuda_options;
+        cuda_options.device_id = 0; // Default to the first GPU
+        cuda_options.arena_extend_strategy = 0; // Default arena extend strategy
+        cuda_options.gpu_mem_limit = SIZE_MAX; // Use all available GPU memory
+        cuda_options.cudnn_conv_algo_search = OrtCudnnConvAlgoSearchExhaustive;
+        cuda_options.do_copy_in_default_stream = 1;
+
+        session_options.AppendExecutionProvider_CUDA(cuda_options);
+        std::cout << "CUDA execution provider added successfully." << std::endl;
+    } else {
+        std::cout << "CUDA not available, using CPU." << std::endl;
+    }
 
     // 3.Preprocess
-    auto preprocessor = std::make_shared<Ort::Session>(env, std::format("{}/nemo128.onnx", model_path).data(), session_options);
+    auto preprocessor = std::make_shared<Ort::Session>(env, fmt::format("{}/nemo128.onnx", model_path).data(), session_options);
     std::pair<Ort::Value, Ort::Value> preprocess_outputs = preprocess(preprocessor, audio_wav);
 
     // 4.Encoder
-    auto encoder = std::make_shared<Ort::Session>(env, std::format("{}/encoder-model.onnx", model_path).data(), session_options);
+    auto encoder = std::make_shared<Ort::Session>(env, fmt::format("{}/encoder-model.onnx", model_path).data(), session_options);
     std::pair<Ort::Value, Ort::Value> encode_outputs = encode(encoder,std::move(preprocess_outputs.first), std::move(preprocess_outputs.second));
     auto encoder_out = encode_outputs.first.GetTensorMutableData<float>();
     auto encoder_out_lens = encode_outputs.second.GetTensorMutableData<int64_t>();
     auto encoder_out_lens_shape = encode_outputs.second.GetTensorTypeAndShapeInfo().GetShape();
 
     // 5.Decoder
-    auto decoder_joint = std::make_shared<Ort::Session>(env, std::format("{}/decoder_joint-model.onnx", model_path).data(), session_options);
+    auto decoder_joint = std::make_shared<Ort::Session>(env, fmt::format("{}/decoder_joint-model.onnx", model_path).data(), session_options);
     for (size_t batch = 0; batch < encoder_out_lens_shape.size(); ++batch) {
         std::pair<Ort::Value, Ort::Value> prev_state = create_state();
         std::vector<int> tokens;
