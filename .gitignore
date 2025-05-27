@@ -3,8 +3,10 @@ cmake-build-debug
 build
 .vscode
 .cache
+
 ggml-small.en.bin
 ggml-medium.en.bin
 decoder_joint-model.onnx
 encoder-model.onnx
 encoder-model.onnx.data
+parakeet_tdt_asr

@@ -31,6 +31,8 @@
 #include <tuple>
 #include <sstream>
 #include <fstream>
+#include <filesystem>
+#include <fmt/format.h>
 #include <onnxruntime_cxx_api.h>
 #include "../third_party/wav.h"
 #include "../third_party/clipp.h"
@@ -193,7 +195,7 @@ bool curl_download(std::string_view target_url, std::string_view filepath, std::
             return false;
         }
     }
-    std::string command = std::format("curl -L --limit-rate '{}' -C - -o '{}' '{}'", limit_rate, filepath, target_url);
+    std::string command = fmt::format("curl -L --limit-rate '{}' -C - -o '{}' '{}'", limit_rate, filepath, target_url);
     int result = system(command.c_str());
     if (result != 0) {
         std::cerr << "Failed to execute command: " << command << std::endl;
@@ -205,17 +207,17 @@ bool curl_download(std::string_view target_url, std::string_view filepath, std::
 void prepare_model_file(std::string_view model_path) {
     std::vector<std::string> files = {"nemo128.onnx", "vocab.txt", "encoder-model.onnx", "decoder_joint-model.onnx", "encoder-model.onnx.data"};
     for (const auto& filename : files) {
-        std::string file_path = std::format("{}/{}", model_path, filename);
+        std::string file_path = fmt::format("{}/{}", model_path, filename);
         if (!std::filesystem::exists(file_path)) {
-            std::string download_url = std::format("https://huggingface.co/istupakov/parakeet-tdt-0.6b-v2-onnx/resolve/main/{}", filename);
+            std::string download_url = fmt::format("https://huggingface.co/istupakov/parakeet-tdt-0.6b-v2-onnx/resolve/main/{}", filename);
             if (filename == "nemo128.onnx") {
                 download_url = "https://raw.githubusercontent.com/ZuoFuhong/subtitle/refs/heads/master/resources/model/parakeet-tdt-0.6b-v2/nemo128.onnx";
             }
             if (!curl_download(download_url, file_path, "10M")) {
-                std::cerr << std::format("Failed to download `{}` model.", file_path) << std::endl;
+                std::cerr << fmt::format("Failed to download `{}` model.", file_path) << std::endl;
                 exit(EXIT_FAILURE);
             }
-            std::cout << std::format("Successfully downloaded `{}`.", file_path) << std::endl;
+            std::cout << fmt::format("Successfully downloaded `{}`.", file_path) << std::endl;
         }
     }
 }
@@ -278,7 +280,7 @@ int main(int argc, char *argv[]) {
         audio_wav[i] = static_cast<float>(*(wav_reader.data() + i));
     }
     // 2.Load Vocab
-    auto vocab = load_vocab(std::format("{}/vocab.txt", model_path));
+    auto vocab = load_vocab(fmt::format("{}/vocab.txt", model_path));
     auto vocab_size = static_cast<int64_t>(vocab.size());
     int blank_idx = find_blank_idx("<blk>", vocab);
 
@@ -299,18 +301,18 @@ int main(int argc, char *argv[]) {
     }
 
     // 3.Preprocess
-    auto preprocessor = std::make_shared<Ort::Session>(env, std::format("{}/nemo128.onnx", model_path).data(), session_options);
+    auto preprocessor = std::make_shared<Ort::Session>(env, fmt::format("{}/nemo128.onnx", model_path).data(), session_options);
     std::pair<Ort::Value, Ort::Value> preprocess_outputs = preprocess(preprocessor, audio_wav);
 
     // 4.Encoder
-    auto encoder = std::make_shared<Ort::Session>(env, std::format("{}/encoder-model.onnx", model_path).data(), session_options);
+    auto encoder = std::make_shared<Ort::Session>(env, fmt::format("{}/encoder-model.onnx", model_path).data(), session_options);
     std::pair<Ort::Value, Ort::Value> encode_outputs = encode(encoder,std::move(preprocess_outputs.first), std::move(preprocess_outputs.second));
     auto encoder_out = encode_outputs.first.GetTensorMutableData<float>();
     auto encoder_out_lens = encode_outputs.second.GetTensorMutableData<int64_t>();
     auto encoder_out_lens_shape = encode_outputs.second.GetTensorTypeAndShapeInfo().GetShape();
 
     // 5.Decoder
-    auto decoder_joint = std::make_shared<Ort::Session>(env, std::format("{}/decoder_joint-model.onnx", model_path).data(), session_options);
+    auto decoder_joint = std::make_shared<Ort::Session>(env, fmt::format("{}/decoder_joint-model.onnx", model_path).data(), session_options);
     for (size_t batch = 0; batch < encoder_out_lens_shape.size(); ++batch) {
         std::pair<Ort::Value, Ort::Value> prev_state = create_state();
         std::vector<int> tokens;
