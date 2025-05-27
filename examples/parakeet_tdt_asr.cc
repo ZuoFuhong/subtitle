@@ -31,7 +31,6 @@
 #include <tuple>
 #include <sstream>
 #include <fstream>
-#include <format>
 #include <onnxruntime_cxx_api.h>
 #include "../third_party/wav.h"
 #include "../third_party/clipp.h"
@@ -186,6 +185,41 @@ std::string tokens_to_text(const std::vector<int>& tokens, const std::map<int, s
     return decode_space_pattern(joined);
 }
 
+bool curl_download(std::string_view target_url, std::string_view filepath, std::string_view limit_rate) {
+    auto dir_path = std::filesystem::path(filepath).parent_path();
+    if (!std::filesystem::exists(dir_path)) {
+        if (!std::filesystem::create_directories(dir_path)) {
+            std::cerr << "Failed to create directories: " << dir_path << std::endl;
+            return false;
+        }
+    }
+    std::string command = std::format("curl -L --limit-rate '{}' -C - -o '{}' '{}'", limit_rate, filepath, target_url);
+    int result = system(command.c_str());
+    if (result != 0) {
+        std::cerr << "Failed to execute command: " << command << std::endl;
+        return false;
+    }
+    return true;
+}
+
+void prepare_model_file(std::string_view model_path) {
+    std::vector<std::string> files = {"nemo128.onnx", "vocab.txt", "encoder-model.onnx", "decoder_joint-model.onnx", "encoder-model.onnx.data"};
+    for (const auto& filename : files) {
+        std::string file_path = std::format("{}/{}", model_path, filename);
+        if (!std::filesystem::exists(file_path)) {
+            std::string download_url = std::format("https://huggingface.co/istupakov/parakeet-tdt-0.6b-v2-onnx/resolve/main/{}", filename);
+            if (filename == "nemo128.onnx") {
+                download_url = "https://raw.githubusercontent.com/ZuoFuhong/subtitle/refs/heads/master/resources/model/parakeet-tdt-0.6b-v2/nemo128.onnx";
+            }
+            if (!curl_download(download_url, file_path, "10M")) {
+                std::cerr << std::format("Failed to download `{}` model.", file_path) << std::endl;
+                exit(EXIT_FAILURE);
+            }
+            std::cout << std::format("Successfully downloaded `{}`.", file_path) << std::endl;
+        }
+    }
+}
+
 /**
  * Main entry point for the Parakeet TDT ASR test application.
  *
@@ -210,8 +244,7 @@ std::string tokens_to_text(const std::vector<int>& tokens, const std::map<int, s
  *   -h                Show help message
  */
 int main(int argc, char *argv[]) {
-    // Please set your own model path. Download the model from: https://huggingface.co/istupakov/parakeet-tdt-0.6b-v2-onnx
-    std::string model_path = "../resources/model";
+    std::string model_path = "../resources/model/parakeet-tdt-0.6b-v2";
     std::string audio_file = "../resources/audio/jfk.wav";
     bool show_help = false;
     auto cli = (
@@ -224,6 +257,7 @@ int main(int argc, char *argv[]) {
         std::cout << clipp::usage_lines(cli) << std::endl;
         exit(EXIT_FAILURE);
     }
+    prepare_model_file(model_path);
     // 1. Load audio file (Requires 16000Hz, mono, s16)
     wav::WavReader wav_reader{};
     if (!wav_reader.open_file(audio_file)) {
