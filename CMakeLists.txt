@@ -21,7 +21,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Werror -Wpedantic -fsanitize=address")
 
-foreach (_target spdlog ggml whisper onnxruntime fmt opus sdl3 sdl3_ttf openssl freetype bzip2 harfbuzz png zlib graphite2)
+foreach (_target spdlog ggml whisper onnxruntime fmt opus sdl3 sdl3_ttf openssl freetype bzip2 harfbuzz png zlib graphite2 utf8cpp)
     include_directories(third_party/${_target}/include/)
     link_directories(third_party/${_target}/lib/)
 endforeach()
@@ -67,6 +67,31 @@ endforeach()
 
 foreach(_target sdl3_text_engine)
     add_executable(${_target} tests/${_target}.cc)
+    target_link_libraries(${_target}
+        common_lib ssl crypto opus spdlog whisper onnxruntime fmt curl iconv SDL3 SDL3_ttf freetype bz2 harfbuzz png z graphite2
+        "-framework AppKit"
+        "-framework AudioToolbox"
+        "-framework GameController"
+        "-framework IOKit"
+        "-framework Carbon"
+        "-framework CoreAudio"
+        "-framework CoreVideo"
+        "-framework CoreHaptics"
+        "-framework CoreGraphics"
+        "-framework CoreFoundation"
+        "-framework ForceFeedback"
+        "-framework Accelerate"
+        "-framework Foundation"
+        "-framework CoreMedia"
+        "-framework AVFoundation"
+        "-framework QuartzCore"
+        "-framework UniformTypeIdentifiers"
+        "-framework Metal"
+        "-framework MetalKit")
+endforeach()
+
+foreach(_target text_editor parakeet_tdt_asr)
+    add_executable(${_target} examples/${_target}.cc)
     target_link_libraries(${_target}
         common_lib ssl crypto opus spdlog whisper onnxruntime fmt curl iconv SDL3 SDL3_ttf freetype bz2 harfbuzz png z graphite2
         "-framework AppKit"
