@@ -138,15 +138,13 @@ int main(int argc, char *argv[]) {
         exit(0);
     }
     signal(SIGINT, handle_sigint);
-    prepare_model_file(model_path, model_name);
-    SDL_AudioDeviceID selected_device = prepare_audio_device();
 
+    SDL_AudioDeviceID selected_device = prepare_audio_device();
     auto audio_queue = new LRUQueue("audio", 200);
+    auto audio_recorder = new AudioRecorder(audio_queue, selected_device);
+
     auto subtitle_queue = new LRUQueue("subtitle", 10);
     auto window = new SubtitleWindow(subtitle_queue, llm_model_name, show_window);
-
-    auto audio_recorder = new AudioRecorder(audio_queue, selected_device);
-    audio_recorder->turn_on();
 
     if (mode == "server") {
         std::string ip;
@@ -159,12 +157,17 @@ int main(int argc, char *argv[]) {
         auto convert_timer = new ConvertTimer(audio_queue, subtitle_queue);
         convert_timer->set_target(ip, port);
         std::thread(&ConvertTimer::start, convert_timer).detach();
-    } else {
+    } else if (mode == "offline") {
+        prepare_model_file(model_path, model_name);
         spdlog::info("ASR offline mode with `{}/{}` model.", model_path, model_name);
         auto convert_timer = new OfflineConvertTimer(audio_queue, subtitle_queue, model_path, model_name);
         std::thread(&OfflineConvertTimer::start, convert_timer).detach();
+    } else {
+        spdlog::error("Unknown ASR mode: {}", mode);
+        exit(EXIT_FAILURE);
     }
 
+    audio_recorder->turn_on();
     window->run();
     return 0;
 }
