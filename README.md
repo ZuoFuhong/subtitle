@@ -33,10 +33,10 @@ export OPENAI_API_KEY=sk-xxxxx
 cd build
 
 # Offline mode
-./main -mode offline
+./main -mode offline -f ../resources/model -m parakeet-tdt-0.6b-v2 -llm gpt-4.1-mini
 
 # Server ASR mode
-./main -mode server -s 9.135.97.184 8000
+./main -mode server -s 9.135.97.184:8000
 ```
 
 ### 2. Speech-to-Text
