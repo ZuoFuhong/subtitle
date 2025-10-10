@@ -21,6 +21,8 @@
 #pragma once
 
 #include "lru_queue.h"
+#include <boost/asio/awaitable.hpp>
+#include <boost/asio/io_context.hpp>
 
 class ConvertTimer {
 public:
@@ -28,7 +30,7 @@ public:
 
     ~ConvertTimer() = default;
 
-    [[noreturn]] void start();
+    void start();
 
     void set_target(std::string ip, unsigned short port);
 
@@ -41,4 +43,8 @@ private:
     std::string m_ip;
 
     unsigned short m_port = 0;
+
+    boost::asio::io_context m_io_context;
+
+    boost::asio::awaitable<void> run_websocket();
 };

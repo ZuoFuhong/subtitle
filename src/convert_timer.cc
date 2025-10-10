@@ -19,21 +19,19 @@
 // SOFTWARE.
 
 #include "convert_timer.h"
-#include "audio_codec.h"
-#include "udp_codec.h"
-#include <spdlog/spdlog.h>
+#include "lru_queue.h"
+#include "packet.h"
+#include <string>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
-#include <utility>
-#include <string>
+#include <spdlog/spdlog.h>
+#include <boost/asio.hpp>
+#include <boost/beast/websocket.hpp>
+#include <boost/beast/core/buffers_to_string.hpp>
+#include "../third_party/json.hpp"
 
-// 音频包 20ms
-const int FRAME_DURATION = 20;
-
-// 缓冲区-最大传输单元
-const int BUFFER_SIZE = 1200;
 
 ConvertTimer::ConvertTimer(LRUQueue* audio_queue, LRUQueue* subtitle_queue) {
     m_audio_queue = audio_queue;
@@ -45,74 +43,77 @@ void ConvertTimer::set_target(std::string ip, unsigned short port) {
     m_port = port;
 }
 
-static void send_udp_packet(int sockfd, const sockaddr_in servaddr, Packet* packet) {
-    uint32_t data_size = 0;
-    uint8_t* data = encode(packet, &data_size);
-    if (sendto(sockfd, data, data_size, 0, (const struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
-        spdlog::error("Subtitle convert timer sendto failed");
-        exit(EXIT_FAILURE);
-    }
-    delete [] data;
-    spdlog::debug("Subtitle convert timer sendto success packet ts: {} size: {}", packet->timestamp, packet->body_size);
-}
-
-[[noreturn]] void subtitle_result_task(int sockfd,  const sockaddr_in servaddr, LRUQueue* m_subtitle_queue) {
-    auto buffer = new uint8_t[BUFFER_SIZE];
+boost::asio::awaitable<void> handle_stream_reader(boost::beast::websocket::stream<boost::asio::ip::tcp::socket>& ws_stream, LRUQueue* m_subtitle_queue) {
+    boost::beast::flat_buffer read_buffer;
+    boost::system::error_code ec;
     while (true) {
-        // 每 80ms 查询字幕
-        std::this_thread::sleep_for(std::chrono::milliseconds(80));
-
-        auto req = new Packet();
-        req->type = SUBTITLE;
-        req->body_size = 0;
-        req->body = new uint8_t[0];
-        send_udp_packet(sockfd, servaddr, req);
-        delete req;
-
-        auto recv_size = recvfrom(sockfd, buffer, BUFFER_SIZE, MSG_DONTWAIT, nullptr, nullptr);
-        if (recv_size < 0) {
-            continue;
+        std::size_t n = co_await ws_stream.async_read(read_buffer, boost::asio::redirect_error(
+            boost::asio::use_awaitable, ec));
+        if (ec) {
+            if (ec == boost::beast::websocket::error::closed) {
+                spdlog::info("WebSocket server closed the connection.");
+                break;
+            }
+            spdlog::error("WebSocket read error: {}", ec.message());
+            break;
         }
-        Packet* pkt = decode(buffer);
-        if (pkt->type == SUBTITLE && pkt->body_size > 0) {
-            m_subtitle_queue->push(pkt);
-            continue;
-        }
-        delete pkt;
+
+        std::string sentence = boost::beast::buffers_to_string(read_buffer.data());
+        read_buffer.consume(n);
+        spdlog::debug("Received subtitle data: {}", sentence);
+
+        nlohmann::json sentence_obj = nlohmann::json::parse(sentence);
+        std::string source_text = sentence_obj["text"];
+
+        auto pkt = new Packet();
+        pkt->type = SUBTITLE;
+        pkt->body_size = source_text.size();
+        pkt->body = new uint8_t[pkt->body_size];
+        memcpy(pkt->body, source_text.data(), pkt->body_size);
+        m_subtitle_queue->push(pkt);
     }
 }
 
-[[noreturn]] void ConvertTimer::start() {
-    int sockfd;
-    struct sockaddr_in servaddr{};
-    memset(&servaddr, 0, sizeof(servaddr));
-    if (inet_pton(AF_INET, m_ip.c_str(), &servaddr.sin_addr) <= 0) {
-        spdlog::error("Error inet_pton node addr");
-        exit(EXIT_FAILURE);
-    }
-    servaddr.sin_family = AF_INET;
-    servaddr.sin_port = htons(m_port);
+boost::asio::awaitable<void> ConvertTimer::run_websocket() {
+    auto executor = co_await boost::asio::this_coro::executor;
+    boost::asio::ip::tcp::resolver resolver(executor);
+    auto results = co_await resolver.async_resolve(m_ip, std::to_string(m_port), 
+        boost::asio::use_awaitable);
 
-    if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
-        spdlog::error("Socket creation failed");
-        exit(EXIT_FAILURE);
+    boost::asio::ip::tcp::socket socket(executor);
+    boost::system::error_code ec;
+    co_await boost::asio::async_connect(socket, results, boost::asio::redirect_error(
+        boost::asio::use_awaitable, ec));
+    if (ec) {
+        spdlog::error("WebSocket connect failed: {}", ec.message());
+        co_return;
     }
-    // 单独线程获取字幕
-    std::thread(subtitle_result_task, sockfd, servaddr, m_subtitle_queue).detach();
 
-    auto audio_codec = AudioCodec::new_audio_codec();
+    boost::beast::websocket::stream<boost::asio::ip::tcp::socket> ws_stream(std::move(socket));
+    co_await ws_stream.async_handshake(m_ip, "/ws", boost::asio::use_awaitable);
+
+    // Start a separate coroutine to read messages from the WebSocket server
+    boost::asio::co_spawn(executor, handle_stream_reader(ws_stream, m_subtitle_queue), boost::asio::detached);
+
+    ws_stream.binary(true);
     while(true) {
         if (m_audio_queue->empty()) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(FRAME_DURATION));
+            co_await boost::asio::steady_timer(executor, std::chrono::milliseconds(20)).async_wait(
+                boost::asio::use_awaitable);
             continue;
         }
         Packet *av_packet = m_audio_queue->pop();
-
-        // 编码发送
-        auto opus_packet = audio_codec->encode(av_packet);
-        send_udp_packet(sockfd, servaddr, opus_packet);
-
-        delete opus_packet;
+        co_await ws_stream.async_write(boost::asio::buffer(av_packet->body, av_packet->body_size),
+            boost::asio::redirect_error(boost::asio::use_awaitable, ec));
+        if (ec) {
+            spdlog::error("Send PCM data failed: {}", ec.message());
+            std::exit(EXIT_FAILURE);
+        }
         delete av_packet;
     }
+}
+
+void ConvertTimer::start() {
+    boost::asio::co_spawn(m_io_context, run_websocket(), boost::asio::detached);
+    m_io_context.run();
 }
