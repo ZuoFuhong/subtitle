@@ -21,8 +21,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Werror -Wpedantic -fsanitize=address")
 
-foreach (_target spdlog ggml whisper onnxruntime fmt opus sdl3 sdl3_ttf openssl freetype bzip2 harfbuzz png zlib graphite2 utf8cpp)
-    include_directories(third_party/${_target}/include/)
+foreach (_target spdlog ggml whisper onnxruntime fmt opus sdl3 sdl3_ttf openssl freetype bzip2 harfbuzz png zlib graphite2 utf8cpp boost)
+    include_directories(SYSTEM third_party/${_target}/include/)
     link_directories(third_party/${_target}/lib/)
 endforeach()
 

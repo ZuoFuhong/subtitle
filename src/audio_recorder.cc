@@ -31,7 +31,7 @@ AudioRecorder::AudioRecorder(LRUQueue* audio_queue, SDL_AudioDeviceID devid) {
     desired_spec.freq = 16000;
     desired_spec.format = SDL_AUDIO_S16LE;
     desired_spec.channels = 1;
-    SDL_AudioStream* audio_stream = SDL_OpenAudioDeviceStream(devid, &desired_spec, nullptr, audio_queue);
+    SDL_AudioStream* audio_stream = SDL_OpenAudioDeviceStream(devid, &desired_spec, nullptr, nullptr);
     if (audio_stream == nullptr) {
         spdlog::error("Failed to open audio stream, error: {}", SDL_GetError());
         exit(EXIT_FAILURE);
@@ -49,7 +49,10 @@ void AudioRecorder::turn_on() {
     }
     started = true;
     SDL_ClearAudioStream(m_audio_stream);
-    SDL_ResumeAudioStreamDevice(m_audio_stream);
+    if (!SDL_ResumeAudioStreamDevice(m_audio_stream)) {
+        spdlog::error("Failed to resume audio stream device, error: {}", SDL_GetError());
+        exit(EXIT_FAILURE);
+    }
 }
 
 void AudioRecorder::turn_off() {
