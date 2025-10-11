@@ -32,6 +32,9 @@
 #include <boost/beast/core/buffers_to_string.hpp>
 #include "../third_party/json.hpp"
 
+const int FRAME_SIZE = 320 * 2; // 20ms for 16kHz 16bit mono audio
+
+const int AUDIO_BATCH_SIZE = 4; // 80ms audio data
 
 ConvertTimer::ConvertTimer(LRUQueue* audio_queue, LRUQueue* subtitle_queue) {
     m_audio_queue = audio_queue;
@@ -64,11 +67,13 @@ boost::asio::awaitable<void> handle_stream_reader(boost::beast::websocket::strea
 
         nlohmann::json sentence_obj = nlohmann::json::parse(sentence);
         std::string source_text = sentence_obj["text"];
+        int64_t begin_time = sentence_obj["begin_time"];
 
         auto pkt = new Packet();
         pkt->type = SUBTITLE;
         pkt->body_size = source_text.size();
         pkt->body = new uint8_t[pkt->body_size];
+        pkt->timestamp = begin_time;
         memcpy(pkt->body, source_text.data(), pkt->body_size);
         m_subtitle_queue->push(pkt);
     }
@@ -95,21 +100,26 @@ boost::asio::awaitable<void> ConvertTimer::run_websocket() {
     // Start a separate coroutine to read messages from the WebSocket server
     boost::asio::co_spawn(executor, handle_stream_reader(ws_stream, m_subtitle_queue), boost::asio::detached);
 
+    auto buffer_bytes = std::make_unique<uint8_t[]>(FRAME_SIZE * AUDIO_BATCH_SIZE);
     ws_stream.binary(true);
     while(true) {
-        if (m_audio_queue->empty()) {
+        if (m_audio_queue->size() < AUDIO_BATCH_SIZE) {
             co_await boost::asio::steady_timer(executor, std::chrono::milliseconds(20)).async_wait(
                 boost::asio::use_awaitable);
             continue;
         }
-        Packet *av_packet = m_audio_queue->pop();
-        co_await ws_stream.async_write(boost::asio::buffer(av_packet->body, av_packet->body_size),
+        for (int i = 0; i < AUDIO_BATCH_SIZE; ++i) { // Merge into one 80ms audio data
+            auto av_packet = m_audio_queue->pop();
+            memcpy(buffer_bytes.get() + i * FRAME_SIZE, av_packet->body, av_packet->body_size);
+            delete av_packet;
+        }
+        spdlog::info("Sending {} bytes of PCM data", FRAME_SIZE * AUDIO_BATCH_SIZE);
+        co_await ws_stream.async_write(boost::asio::buffer(buffer_bytes.get(), FRAME_SIZE * AUDIO_BATCH_SIZE),
             boost::asio::redirect_error(boost::asio::use_awaitable, ec));
         if (ec) {
             spdlog::error("Send PCM data failed: {}", ec.message());
             std::exit(EXIT_FAILURE);
         }
-        delete av_packet;
     }
 }
 
