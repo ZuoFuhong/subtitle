@@ -113,7 +113,6 @@ boost::asio::awaitable<void> ConvertTimer::run_websocket() {
             memcpy(buffer_bytes.get() + i * FRAME_SIZE, av_packet->body, av_packet->body_size);
             delete av_packet;
         }
-        spdlog::info("Sending {} bytes of PCM data", FRAME_SIZE * AUDIO_BATCH_SIZE);
         co_await ws_stream.async_write(boost::asio::buffer(buffer_bytes.get(), FRAME_SIZE * AUDIO_BATCH_SIZE),
             boost::asio::redirect_error(boost::asio::use_awaitable, ec));
         if (ec) {
